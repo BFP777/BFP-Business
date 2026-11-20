@@ -43,11 +43,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
+
+      - name: Configure Signing
         working-directory: ${{ steps.source.outputs.dir }}
         env:
           STORE_B64: ${{ secrets.BFP_KEYSTORE_BASE64 }}
@@ -56,6 +57,13 @@ jobs:
           KEY_PASSWORD: ${{ secrets.BFP_KEY_PASSWORD }}
         shell: bash
         run: |
+          set -e
+          test -n "$STORE_B64"
+          test -n "$STORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          echo "$STORE_B64" | base64 --decode > release-key.jks
+          test -s release-key.jks
           set -e
           test -n "$STORE_B64"
           test -n "$STORE_PASSWORD"
