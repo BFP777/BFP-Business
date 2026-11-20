@@ -1,5 +1,4 @@
-
-name: BFP Business Pro Signed APK Dev68
+name: BFP Business Pro Signed APK Dev69
 
 on:
   workflow_dispatch:
@@ -22,6 +21,7 @@ jobs:
         id: source
         shell: bash
         run: |
+          set -e
           ZIP_COUNT=$(find source -maxdepth 1 -name '*.zip' | wc -l)
           if [ "$ZIP_COUNT" -ne 1 ]; then
             echo "Expected exactly one source ZIP, found $ZIP_COUNT"
@@ -43,6 +43,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
@@ -57,69 +58,41 @@ jobs:
           KEY_PASSWORD: ${{ secrets.BFP_KEY_PASSWORD }}
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           test -n "$STORE_B64"
           test -n "$STORE_PASSWORD"
           test -n "$KEY_ALIAS"
           test -n "$KEY_PASSWORD"
           echo "$STORE_B64" | base64 --decode > release-key.jks
           test -s release-key.jks
-          set -e
-          test -n "$STORE_B64"
-          test -n "$STORE_PASSWORD"
-          test -n "$KEY_ALIAS"
-          test -n "$KEY_PASSWORD"
-          echo "$STORE_B64" | base64 --decode > release-key.jks
-          test -s release-key.jks
-          export STORE_PASSWORD KEY_ALIAS KEY_PASSWORD
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p = Path("app/build.gradle.kts")
-          s = p.read_text()
-          if "signingConfigs" in s:
-              raise SystemExit("Signing config already exists; refusing duplicate patch")
-          marker = "    buildFeatures { buildConfig = true }"
-          addition = '''
-              signingConfigs {
-                  create("release") {
-                      storeFile = rootProject.file("release-key.jks")
-                      storePassword = System.getenv("STORE_PASSWORD")
-                      keyAlias = System.getenv("KEY_ALIAS")
-                      keyPassword = System.getenv("KEY_PASSWORD")
-                  }
-              }
-              buildTypes {
-                  getByName("release") {
-                      signingConfig = signingConfigs.getByName("release")
-                      isMinifyEnabled = false
-                  }
-              }
-          '''
-          if marker not in s:
-              raise SystemExit("Expected Android Gradle configuration not found")
-          p.write_text(s.replace(marker, addition + "\n" + marker, 1))
-          PY
+          keytool -list -keystore release-key.jks -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "Stable signing keystore and alias verified."
 
       - name: Build Signed Release APK
         working-directory: ${{ steps.source.outputs.dir }}
         env:
-          STORE_PASSWORD: ${{ secrets.BFP_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.BFP_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.BFP_KEY_PASSWORD }}
+          BFP_KEYSTORE_FILE: ../release-key.jks
+          BFP_KEYSTORE_PASSWORD: ${{ secrets.BFP_KEYSTORE_PASSWORD }}
+          BFP_KEY_ALIAS: ${{ secrets.BFP_KEY_ALIAS }}
+          BFP_KEY_PASSWORD: ${{ secrets.BFP_KEY_PASSWORD }}
         run: |
+          set -e
           gradle --no-daemon assembleRelease
 
       - name: Verify APK Signature
         working-directory: ${{ steps.source.outputs.dir }}
+        shell: bash
         run: |
+          set -e
           APK=$(find . -path '*/build/outputs/apk/release/*.apk' | head -n 1)
           test -n "$APK"
-          $ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner verify "$APK"
+          BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify "$APK"
+          echo "APK signature verified."
 
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: BFP-Business-Pro-Signed-Dev68
+          name: BFP-Business-Pro-Signed-Dev69
           path: ${{ steps.source.outputs.dir }}/**/build/outputs/apk/release/*.apk
           if-no-files-found: error
