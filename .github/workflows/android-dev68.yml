@@ -45,9 +45,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: 
-         android-actions/setup-android@v3
-
+        uses: android-actions/setup-android@v3
       - name: Configure Signing
         working-directory: ${{ steps.source.outputs.dir }}
         env:
