@@ -103,6 +103,10 @@ jobs:
 
       - name: Build Signed Release APK
         working-directory: ${{ steps.source.outputs.dir }}
+        env:
+          STORE_PASSWORD: ${{ secrets.BFP_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BFP_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BFP_KEY_PASSWORD }}
         run: |
           gradle --no-daemon assembleRelease
 
