@@ -43,11 +43,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Configure Signing
-        working-directory: ${{ steps.source.outputs.dir }}
+  uses: android-actions/setup-android@v4
+  with:
+      packages: 'platform-tools'
+    - name: Configure Signin
+    working-directory: ${{ steps.source.outputs.dir }}
         env:
           STORE_B64: ${{ secrets.BFP_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.BFP_KEYSTORE_PASSWORD }}
@@ -89,7 +90,7 @@ jobs:
           '''
           if marker not in s:
               raise SystemExit("Expected Android Gradle configuration not found")
-          p.write_text(s.replace(marker, addition + "\\n" + marker, 1))
+          p.write_text(s.replace(marker, addition + "\n" + marker, 1))
           PY
 
       - name: Build Signed Release APK
