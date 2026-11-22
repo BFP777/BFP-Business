@@ -72,7 +72,7 @@ jobs:
       - name: Build DEV105 signed release APK
         working-directory: ${{ steps.source.outputs.dir }}
         env:
-          BFP_KEYSTORE_FILE: release-key.jks
+          BFP_KEYSTORE_FILE: ../release-key.jks
           BFP_KEYSTORE_PASSWORD: ${{ secrets.BFP_KEYSTORE_PASSWORD }}
           BFP_KEY_ALIAS: ${{ secrets.BFP_KEY_ALIAS }}
           BFP_KEY_PASSWORD: ${{ secrets.BFP_KEY_PASSWORD }}
