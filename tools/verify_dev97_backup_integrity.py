@@ -12,7 +12,7 @@ checks = {
     'restore keeps legacy SQLite support': 'rawTemp.copyTo(legacyDb' in backup,
     'restore validates SQLite integrity': 'PRAGMA integrity_check' in backup,
     'database version range supports schema 10': 'cursor.getInt(0) in 3..10' in backup,
-    'app version 5.43.0 / 542': 'versionCode = 551' in gradle and 'versionName = "5.51.0"' in gradle,
+    'app version 5.43.0 / 542': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
 }
 for name, ok in checks.items():
     print(('PASS' if ok else 'FAIL') + ': ' + name)

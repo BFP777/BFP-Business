@@ -13,7 +13,7 @@ checks = {
     "Hindi and English number phrases supported": '"पाँच" to 5L' in main and '"five" to 5L' in main and '"सौ"' in main and '"hundred"' in main,
     "voice result remains draft-only; existing explicit invoice save remains required": "pendingVoiceHandler?.invoke(spoken)" in main and "dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener" in main,
     "voice loop is stopped when invoice dialog closes": "continuousVoiceEntry = false" in main and "dialog.setOnDismissListener" in main,
-    "version advanced to 5.51.0 / 551": 'versionCode = 551' in (root / "app/build.gradle.kts").read_text() and 'versionName = "5.51.0"' in (root / "app/build.gradle.kts").read_text(),
+    "version advanced to 5.52.0 / 552": 'versionCode = 552' in (root / "app/build.gradle.kts").read_text() and 'versionName = "5.52.0"' in (root / "app/build.gradle.kts").read_text(),
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

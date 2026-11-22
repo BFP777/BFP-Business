@@ -2455,7 +2455,22 @@ class MainActivity : AppCompatActivity() {
             if (kind == "SALE") {
                 val search = editField("ग्राहक का नाम या मोबाइल खोजें", "")
                 val results = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
-                val selectedInfo = TextView(this@MainActivity).apply { setPadding(dp(10), dp(8), dp(10), dp(8)); setTextColor(0xFF245A78.toInt()) }
+                val selectedInfo = TextView(this@MainActivity).apply {
+                    setPadding(dp(10), dp(7), dp(10), dp(7)); setTextColor(0xFF245A78.toInt())
+                    textSize = 15f; maxLines = 3; background = rounded(0xFFE8F5E9.toInt(), 10)
+                }
+                val changeCustomer = Button(this@MainActivity).apply {
+                    text = "बदलें"; isAllCaps = false; textSize = 12f; minHeight = dp(38); minimumHeight = dp(38)
+                }
+                val customerSummaryRow = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    addView(selectedInfo, LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(changeCustomer, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(6) })
+                }
+                val customerSearchPanel = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+                val customerResultsScroll = ScrollView(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(-1, dp(170)); isVerticalScrollBarEnabled = true; addView(results)
+                }
                 val saleInvoices = withContext(Dispatchers.IO) { db.dao().observeInvoices("SALE").first() }
                 val customerPayments = withContext(Dispatchers.IO) { db.dao().observePayments().first() }
                 val partiesMutable = parties.toMutableList()
@@ -2464,13 +2479,11 @@ class MainActivity : AppCompatActivity() {
                     selectedPartyId = customer.id
                     val code = customer.gstNumber.takeIf { it.length >= 2 }?.substring(0, 2) ?: businessProfile.stateCode
                     val idx = indianStates.indexOfFirst { it.second == code }; if (idx >= 0) stateSpinner.setSelection(idx)
-                    val balance = run {
-                        val receivable = saleInvoices.filter { it.partyId == customer.id }.sumOf { (it.totalPaise - it.paidPaise).coerceAtLeast(0L) }
-                        val advance = customerPayments.filter { it.partyId == customer.id && it.direction == "IN" && it.invoiceId == null }.sumOf { it.amountPaise }
-                        (receivable - advance).coerceAtLeast(0L)
-                    }
-                    selectedInfo.text = "चुना गया: ${customer.name}  |  मोबाइल: ${customer.mobile.ifBlank { "—" }}  |  बकाया: ₹${"%.2f".format(java.util.Locale.US, balance / 100.0)}"
+                    val addressLine = customer.address.trim()
+                    selectedInfo.text = if (addressLine.isBlank()) customer.name else "${customer.name}\n$addressLine"
                     selectedInfo.setBackgroundColor(0xFFE8F5E9.toInt())
+                    customerSearchPanel.visibility = View.GONE
+                    customerSummaryRow.visibility = View.VISIBLE
                     refreshCustomerRows(search.text.toString())
                 }
                 fun addCustomerInline() {
@@ -2507,15 +2520,24 @@ class MainActivity : AppCompatActivity() {
                 }
                 search.addTextChangedListener(object: android.text.TextWatcher { override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}; override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){refreshCustomerRows(s?.toString().orEmpty())}; override fun afterTextChanged(s:android.text.Editable?){} })
                 val picker = salePartyPicker!!
-                picker.addView(TextView(this@MainActivity).apply { text="ग्राहक चुनें / Select Customer"; textSize=16f; setPadding(0,dp(4),0,dp(4)) })
-                picker.addView(search); picker.addView(selectedInfo)
-                val scroll=ScrollView(this@MainActivity).apply { layoutParams=LinearLayout.LayoutParams(-1,dp(170)); addView(results) }; picker.addView(scroll)
-                picker.addView(Button(this@MainActivity).apply { text="+ Add New Party / नया ग्राहक जोड़ें"; setOnClickListener { addCustomerInline() } })
+                customerSearchPanel.addView(search)
+                customerSearchPanel.addView(customerResultsScroll)
+                customerSearchPanel.addView(Button(this@MainActivity).apply {
+                    text = "+ नया ग्राहक जोड़ें"; isAllCaps = false
+                    setOnClickListener { addCustomerInline() }
+                })
+                picker.addView(customerSummaryRow)
+                picker.addView(customerSearchPanel)
+                changeCustomer.setOnClickListener {
+                    customerSummaryRow.visibility = View.GONE
+                    customerSearchPanel.visibility = View.VISIBLE
+                    search.requestFocus()
+                }
                 if (initialParty != null) chooseCustomer(initialParty) else {
-                    selectedInfo.text="अभी कोई ग्राहक सेव नहीं है। नया ग्राहक जोड़ने के लिए यहाँ टैप करें।"
-                    selectedInfo.isClickable = true
-                    selectedInfo.isFocusable = true
-                    selectedInfo.setBackgroundColor(0xFFEAF3F8.toInt())
+                    selectedInfo.text = "ग्राहक चुनें / Select Customer"
+                    selectedInfo.isClickable = false
+                    customerSummaryRow.visibility = View.GONE
+                    customerSearchPanel.visibility = View.VISIBLE
                 }
                 refreshCustomerRows("")
             } else {
@@ -2530,6 +2552,7 @@ class MainActivity : AppCompatActivity() {
             val linesBox = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
             data class InvoiceLineViews(val code: EditText, val name: EditText, val quantity: EditText, val rate: EditText, val gst: EditText, val hsn: EditText, var itemId: Long = 0L)
             val rows = mutableListOf<InvoiceLineViews>()
+            var itemListScroll: ScrollView? = null
             var startVoiceEntryForCurrentRow: (() -> Unit)? = null
             val entryBox = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(6), 0, dp(8)) }
             val draftCode = editField("Item Code (वैकल्पिक)", "")
@@ -2563,6 +2586,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 linesBox.addView(summary)
                 refreshItemCount()
+                // Keep the customer/header and item editor fixed; scroll only the
+                // added-item viewport to the newest spoken or manually added line.
+                itemListScroll?.post { itemListScroll?.fullScroll(View.FOCUS_DOWN) }
             }
             fun commitDraftLine(): Boolean {
                 val n = draftName.text.toString().trim(); val q = draftQty.text.toString().trim().toDoubleOrNull(); val r = draftRate.text.toString().trim().toDoubleOrNull()
@@ -2729,11 +2755,12 @@ class MainActivity : AppCompatActivity() {
                 fixedHeader.addView(child)
             }
             box.removeView(linesBox)
-            val itemListScroll = ScrollView(this@MainActivity).apply {
+            val itemListViewport = ScrollView(this@MainActivity).apply {
                 isFillViewport = true
                 isVerticalScrollBarEnabled = true
                 addView(linesBox)
             }
+            itemListScroll = itemListViewport
             while (box.childCount > 0) {
                 val child = box.getChildAt(0)
                 box.removeViewAt(0)
@@ -2742,7 +2769,7 @@ class MainActivity : AppCompatActivity() {
             val root = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(fixedHeader, LinearLayout.LayoutParams(-1, -2))
-                addView(itemListScroll, LinearLayout.LayoutParams(-1, dp(132)))
+                addView(itemListViewport, LinearLayout.LayoutParams(-1, dp(156)))
                 addView(ScrollView(this@MainActivity).apply { addView(bottomDetails) }, LinearLayout.LayoutParams(-1, 0, 1f))
             }
             var invoiceSaved = false

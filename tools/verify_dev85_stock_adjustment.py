@@ -22,7 +22,7 @@ checks = {
     "new item opening stock is recorded": "insertItemWithOpeningStock(entity)" in main,
     "manual adjustment requires reason and offers history": "स्टॉक समायोजन / हिस्ट्री" in main and "बदलाव का कारण (अनिवार्य)" in main and "getStockMovements(item.id)" in main,
     "backup accepts schema v10 and validates movement table": "cursor.getInt(0) in 3..10" in backup and "stock_movements" in backup,
-    "version 5.31.0 / 530": 'versionCode = 551' in gradle and 'versionName = "5.51.0"' in gradle,
+    "version 5.31.0 / 530": 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

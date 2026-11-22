@@ -4,7 +4,7 @@ main = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt').rea
 checks = {
     'sale has searchable customer picker': 'ग्राहक का नाम या मोबाइल खोजें' in main and 'addTextChangedListener' in main,
     'customer list shows mobile and outstanding': 'मोबाइल उपलब्ध नहीं' in main and 'बकाया ₹' in main,
-    'new customer can be created inside sale flow': '+ Add New Party / नया ग्राहक जोड़ें' in main and 'insertParty(customer)' in main,
+    'new customer can be created inside sale flow': '+ नया ग्राहक जोड़ें' in main and 'insertParty(customer)' in main,
     'new customer is selected immediately': 'chooseCustomer(saved)' in main,
     'sale can start without an existing customer': 'parties.isEmpty() && kind == "PURCHASE"' in main,
     'sale save requires a selected customer': 'पहले ग्राहक चुनें या नया ग्राहक जोड़ें' in main,
