@@ -35,8 +35,8 @@ jobs:
           GRADLE_FILE=$(find "$RUNNER_TEMP/bfp-source" -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
           test -n "$GRADLE_FILE" || { echo 'Gradle project not found inside source ZIP'; exit 1; }
           PROJECT_DIR=$(dirname "$GRADLE_FILE")
+          rm -rf "$PROJECT_DIR/.github/workflows"
           cp -a "$PROJECT_DIR"/. .
-          rm -f .github/workflows/android-build.yml
           rm -f "$SOURCE_ZIP"
 
       - name: Commit complete DEV105 project
