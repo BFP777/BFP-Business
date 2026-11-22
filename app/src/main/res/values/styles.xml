@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.BFPBusinessPro" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#173B57</item>
+        <item name="colorPrimaryVariant">#102A40</item>
+        <item name="colorSecondary">#C79A36</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">#EAF2F8</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

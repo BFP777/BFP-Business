@@ -1,0 +1,11 @@
+.gradle/
+.idea/
+local.properties
+**/build/
+.DS_Store
+__pycache__/
+*.py[cod]
+*.tmp
+*.restore-new
+*.restore-previous
+app/schemas/*.json
