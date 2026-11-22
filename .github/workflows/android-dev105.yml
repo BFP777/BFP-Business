@@ -1,4 +1,5 @@
-name: BFP Business Pro Signed APK DEV106
+
+name: BFP Business Pro Signed APK DEV107
 
 on:
   workflow_dispatch:
@@ -19,18 +20,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout DEV106 imported source
+      - name: Checkout DEV107 imported source
         uses: actions/checkout@v4
 
-      - name: Verify DEV106 project and version
+      - name: Verify DEV107 project and version
         shell: bash
         run: |
           set -euo pipefail
           test -f settings.gradle.kts
           test -f app/build.gradle.kts
-          grep -q 'versionCode = 551' app/build.gradle.kts
-          grep -q 'versionName = "5.51.0"' app/build.gradle.kts
-          echo "DEV106 root Android project verified."
+          grep -q 'versionCode = 552' app/build.gradle.kts
+          grep -q 'versionName = "5.52.0"' app/build.gradle.kts
+          echo "DEV107 root Android project verified."
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -69,7 +70,7 @@ jobs:
           echo "BFP_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
           echo "Stable signing keystore and alias verified."
 
-      - name: Build DEV106 signed release APK
+      - name: Build DEV107 signed release APK
         run: |
           set -euo pipefail
           gradle --no-daemon :app:assembleRelease
@@ -83,13 +84,13 @@ jobs:
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n 1)
           test -n "$BUILD_TOOLS"
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='in.bhajan.bfpbusinesspro' versionCode='551' versionName='5.51.0'"
-          echo "DEV106 signed APK signature and version verified."
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='in.bhajan.bfpbusinesspro' versionCode='552' versionName='5.52.0'"
+          echo "DEV107 signed APK signature and version verified."
 
-      - name: Upload DEV106 signed APK
+      - name: Upload DEV107 signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: BFP-Business-Pro-Signed-DEV106
+          name: BFP-Business-Pro-Signed-DEV107
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
