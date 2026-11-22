@@ -36,6 +36,7 @@ jobs:
           test -n "$GRADLE_FILE" || { echo 'Gradle project not found inside source ZIP'; exit 1; }
           PROJECT_DIR=$(dirname "$GRADLE_FILE")
           cp -a "$PROJECT_DIR"/. .
+          rm -f .github/workflows/android-build.yml
           rm -f "$SOURCE_ZIP"
 
       - name: Commit complete DEV105 project
