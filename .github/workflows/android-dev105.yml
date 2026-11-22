@@ -64,15 +64,15 @@ jobs:
           test -n "$STORE_PASSWORD" || { echo "Missing BFP_KEYSTORE_PASSWORD secret"; exit 1; }
           test -n "$KEY_ALIAS" || { echo "Missing BFP_KEY_ALIAS secret"; exit 1; }
           test -n "$KEY_PASSWORD" || { echo "Missing BFP_KEY_PASSWORD secret"; exit 1; }
-          echo "$STORE_B64" | base64 --decode > ../release-key.jks
-          test -s ../release-key.jks
-          keytool -list -keystore ../release-key.jks -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "$STORE_B64" | base64 --decode > release-key.jks
+          test -s release-key.jks
+          keytool -list -keystore release-key.jks -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
           echo "Stable signing keystore and alias verified."
 
       - name: Build DEV105 signed release APK
         working-directory: ${{ steps.source.outputs.dir }}
         env:
-          BFP_KEYSTORE_FILE: ../release-key.jks
+          BFP_KEYSTORE_FILE: release-key.jks
           BFP_KEYSTORE_PASSWORD: ${{ secrets.BFP_KEYSTORE_PASSWORD }}
           BFP_KEY_ALIAS: ${{ secrets.BFP_KEY_ALIAS }}
           BFP_KEY_PASSWORD: ${{ secrets.BFP_KEY_PASSWORD }}
