@@ -1,0 +1,49 @@
+name: Import BFP Business Pro DEV105 Source
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_zip:
+        description: 'Repository-root ZIP filename to import'
+        required: true
+        default: 'BFP-Business-Pro-DEV105-CORRECTED-SOURCE.zip'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate and extract DEV105 source ZIP
+        shell: bash
+        env:
+          SOURCE_ZIP: ${{ inputs.source_zip }}
+        run: |
+          set -euo pipefail
+          if [[ "$SOURCE_ZIP" == */* || "$SOURCE_ZIP" != *.zip ]]; then
+            echo "Enter only a ZIP filename stored in the repository root."
+            exit 1
+          fi
+          test -s "$SOURCE_ZIP" || { echo "Source ZIP not found: $SOURCE_ZIP"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/bfp-source"
+          unzip -q "$SOURCE_ZIP" -d "$RUNNER_TEMP/bfp-source"
+          GRADLE_FILE=$(find "$RUNNER_TEMP/bfp-source" -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          test -n "$GRADLE_FILE" || { echo 'Gradle project not found inside source ZIP'; exit 1; }
+          PROJECT_DIR=$(dirname "$GRADLE_FILE")
+          cp -a "$PROJECT_DIR"/. .
+          rm -f "$SOURCE_ZIP"
+
+      - name: Commit complete DEV105 project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Import BFP Business Pro DEV105 source"
+            git push
+          fi
