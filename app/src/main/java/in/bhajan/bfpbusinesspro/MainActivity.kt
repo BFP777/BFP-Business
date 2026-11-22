@@ -2599,12 +2599,16 @@ class MainActivity : AppCompatActivity() {
                     if (parsed.first.isBlank()) { draftName.setText(spoken.trim()); toast("आइटम का नाम समझ नहीं आया; मात्रा और रेट जाँचें") }
                     else {
                         draftName.setText(parsed.first)
-                        parsed.second?.let { draftQty.setText(it) }
+                        // Quantity-first phrases (e.g. "पाँच सूट पाँच सौ रुपये") are
+                        // parsed as quantity + item + rate. If quantity is omitted,
+                        // use the editor's normal default of 1 and still auto-add.
+                        val voiceQuantity = parsed.second ?: "1"
+                        draftQty.setText(voiceQuantity)
                         parsed.third?.let { draftRate.setText(it) }
-                        if (parsed.second != null && parsed.third != null) {
+                        if (parsed.third != null) {
                             val added = commitDraftLine()
                             if (added && continuousVoiceEntry) { toast("${rows.size}वीं आइटम जुड़ गई। अगली आइटम बोलें।"); startNextVoiceEntry?.invoke() }
-                        } else toast("नाम/मात्रा/रेट जाँचकर जोड़ें")
+                        } else toast("आइटम का रेट समझ नहीं आया; रेट जाँचकर जोड़ें")
                     }
                 }
             }
@@ -2735,19 +2739,11 @@ class MainActivity : AppCompatActivity() {
                 box.removeViewAt(0)
                 bottomDetails.addView(child)
             }
-            // The invoice form must remain reachable on smaller phone screens.
-            // A single outer scroll container prevents the item editor and
-            // the + आइटम जोड़ें button from being clipped below the dialog.
-            val invoiceContent = LinearLayout(this@MainActivity).apply {
+            val root = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(fixedHeader, LinearLayout.LayoutParams(-1, -2))
                 addView(itemListScroll, LinearLayout.LayoutParams(-1, dp(132)))
-                addView(ScrollView(this@MainActivity).apply { addView(bottomDetails) }, LinearLayout.LayoutParams(-1, dp(170)))
-            }
-            val root = ScrollView(this@MainActivity).apply {
-                isFillViewport = true
-                isVerticalScrollBarEnabled = true
-                addView(invoiceContent)
+                addView(ScrollView(this@MainActivity).apply { addView(bottomDetails) }, LinearLayout.LayoutParams(-1, 0, 1f))
             }
             var invoiceSaved = false
             val dialog = AlertDialog.Builder(this@MainActivity)

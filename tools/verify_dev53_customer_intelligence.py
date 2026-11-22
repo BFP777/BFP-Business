@@ -16,7 +16,7 @@ checks = {
     "customer intelligence is reachable and deliberately informational": "Customer Insights / ग्राहक विश्लेषण" in main and "कोई ऑटोमैटिक संदेश, भुगतान या रिकॉर्ड बदलाव नहीं होगा" in main,
     "VIP criteria are disclosed and optional birthday is validated": "5 या अधिक बिल अथवा ₹25,000" in main and "जन्मदिन (DD-MM-YYYY, वैकल्पिक)" in main and "DD-MM-YYYY सही भरें" in main,
     "backup validator accepts schema v9": "cursor.getInt(0) in 3..10" in backup,
-    "app version advanced": "versionCode = 550" in gradle and 'versionName = "5.50.0"' in gradle,
+    "app version advanced": "versionCode = 551" in gradle and 'versionName = "5.51.0"' in gradle,
 }
 # Extract exact Room queries for the four new customer methods.
 methods = ["observeCustomerInsights", "observeCustomerBirthdays", "getCustomerPurchaseHistory", "getCustomerDesignPreferences", "observeTopCustomerDesigns"]

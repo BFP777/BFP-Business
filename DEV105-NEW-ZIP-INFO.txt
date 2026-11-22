@@ -1,7 +1,5 @@
-BFP Business Pro - DEV105 corrected source package
-Package: BFP-Business-Pro-DEV105-CORRECTED-SOURCE.zip
-Baseline: DEV105 (not DEV64, DEV68, or DEV69)
-App version: 5.50.0 / versionCode 550
-Room schema: version 10 (unchanged)
-Contains the corrected invoice item/lower-details scroll layout, corrected regression-suite path, and DEV105 GitHub import/build workflows.
-APK build/signing must be completed and verified by the DEV105 GitHub Actions workflow.
+BFP Business Pro - DEV105 source package
+Package: BFP-Business-Pro-DEV105-NEW-Kotlin-Fix-Source.zip
+Baseline: DEV105 (not DEV64 or DEV69)
+Contains the Kotlin source correction previously prepared for DEV105.
+APK build/signing must still be verified by the DEV105 GitHub workflow.

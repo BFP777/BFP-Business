@@ -11,7 +11,7 @@ checks = {
     'purchase summary displays each item GST': 'if (kind == "PURCHASE") "  |  GST: $gstRate%" else ""' in main,
     'purchase OCR matched GST remains on its item line': 'gstRate = matched?.gstRatePercent ?: 0.0' in main,
     'manual purchase GST is validated from 0 to 100 percent': 'itemGst !in 0.0..100.0' in main and 'gstValue !in 0.0..100.0' in main,
-    'app version advanced to 5.26.0 without Room schema change': 'versionCode = 550' in gradle and 'versionName = "5.50.0"' in gradle,
+    'app version advanced to 5.26.0 without Room schema change': 'versionCode = 551' in gradle and 'versionName = "5.51.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

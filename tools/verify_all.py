@@ -88,7 +88,7 @@ subprocess.run([sys.executable, str(ROOT / "tools/verify_dev95_financial_pdf.py"
 
 # Dev96 reports dashboard
 
-subprocess.run([sys.executable, str(ROOT / "tools/verify_dev96_reports_dashboard.py")], cwd=ROOT, check=True)
+subprocess.run([sys.executable, str(ROOT / "verify_dev96_reports_dashboard.py")], cwd=ROOT, check=True)
 # Dev97 backup package integrity and compatibility checks
 subprocess.run([sys.executable, str(ROOT / "tools/verify_dev97_backup_integrity.py")], cwd=ROOT, check=True)
 

@@ -5,7 +5,7 @@ scheduler = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/AutoBacku
 worker = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/AutoBackupWorker.kt').read_text()
 gradle = (root / 'app/build.gradle.kts').read_text()
 checks = {
-    'version 5.43.0 / 543': 'versionCode = 550' in gradle and 'versionName = "5.50.0"' in gradle,
+    'version 5.43.0 / 543': 'versionCode = 551' in gradle and 'versionName = "5.51.0"' in gradle,
     'WorkManager dependency present': 'androidx.work:work-runtime-ktx:2.10.0' in gradle,
     'DocumentFile dependency present': 'androidx.documentfile:documentfile:1.0.1' in gradle,
     'user selects cloud folder via SAF': 'OpenDocumentTree()' in main and 'takePersistableUriPermission' in main,
