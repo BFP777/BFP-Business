@@ -17,6 +17,12 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.RecognitionListener
+import android.os.Handler
+import android.os.Looper
+import android.content.pm.PackageManager
+import android.Manifest
 import java.io.File
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -2550,9 +2556,17 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val linesBox = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
-            data class InvoiceLineViews(val code: EditText, val name: EditText, val quantity: EditText, val rate: EditText, val gst: EditText, val hsn: EditText, var itemId: Long = 0L)
+            data class InvoiceLineViews(val code: EditText, val name: EditText, val quantity: EditText, val rate: EditText, val gst: EditText, val hsn: EditText, var itemId: Long = 0L, var summary: TextView? = null)
             val rows = mutableListOf<InvoiceLineViews>()
             var itemListScroll: ScrollView? = null
+            var editingRow: InvoiceLineViews? = null
+            var continuousRecognizer: SpeechRecognizer? = null
+            var recognizerListenerReady = false
+            var addButton: Button? = null
+            var voiceStatus: TextView? = null
+            var voiceToggle: Button? = null
+            val voiceHandler = Handler(Looper.getMainLooper())
+            var restartVoiceRunnable: Runnable? = null
             var startVoiceEntryForCurrentRow: (() -> Unit)? = null
             val entryBox = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(6), 0, dp(8)) }
             val draftCode = editField("Item Code (वैकल्पिक)", "")
@@ -2562,7 +2576,67 @@ class MainActivity : AppCompatActivity() {
             val draftPurchaseGst = editField("इस आइटम का GST % (सप्लायर बिल के अनुसार)", "0")
             draftPurchaseGst.visibility = if (kind == "PURCHASE") View.VISIBLE else View.GONE
             val draftHsn = editField("HSN Code (वैकल्पिक)", "")
-            listOf(draftCode, draftName, draftQty, draftRate, draftPurchaseGst, draftHsn).forEach { entryBox.addView(it) }
+            // Sale-only, device-local memory of previously sold item names and their last sale rates.
+            // This is intentionally separate from the stock Item Master: suggestions must never create stock.
+            val savedSaleItemsPanel = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL; visibility = View.GONE
+                setPadding(dp(8), dp(4), dp(8), dp(4)); background = rounded(0xFFF5F7FA.toInt(), 10)
+            }
+            fun readSavedSaleItems(): MutableList<Pair<String, String>> {
+                val prefs = getSharedPreferences("bfp_saved_sale_item_suggestions_v1", MODE_PRIVATE)
+                val raw = prefs.getString("items", "[]") ?: "[]"
+                return try {
+                    val array = org.json.JSONArray(raw)
+                    (0 until array.length()).mapNotNull { i ->
+                        val obj = array.optJSONObject(i) ?: return@mapNotNull null
+                        val name = obj.optString("name").trim()
+                        if (name.isBlank()) null else name to obj.optString("rate", "")
+                    }.toMutableList()
+                } catch (_: Exception) { mutableListOf() }
+            }
+            fun saveSoldItemSuggestion(name: String, rate: String) {
+                if (kind != "SALE" || name.isBlank()) return
+                val items = readSavedSaleItems()
+                val existingIndex = items.indexOfFirst { it.first.equals(name.trim(), ignoreCase = true) }
+                if (existingIndex >= 0) items.removeAt(existingIndex)
+                items.add(0, name.trim() to rate)
+                val array = org.json.JSONArray()
+                items.take(300).forEach { (savedName, savedRate) ->
+                    array.put(org.json.JSONObject().put("name", savedName).put("rate", savedRate))
+                }
+                getSharedPreferences("bfp_saved_sale_item_suggestions_v1", MODE_PRIVATE).edit().putString("items", array.toString()).apply()
+            }
+            fun refreshSavedSaleItemSuggestions(query: String) {
+                savedSaleItemsPanel.removeAllViews()
+                if (kind != "SALE" || query.isBlank()) { savedSaleItemsPanel.visibility = View.GONE; return }
+                val matches = readSavedSaleItems().filter { it.first.startsWith(query.trim(), ignoreCase = true) }.take(8)
+                if (matches.isEmpty()) { savedSaleItemsPanel.visibility = View.GONE; return }
+                savedSaleItemsPanel.visibility = View.VISIBLE
+                savedSaleItemsPanel.addView(TextView(this@MainActivity).apply {
+                    text = "पहले बेचे गए आइटम"; textSize = 13f; setTypeface(null, android.graphics.Typeface.BOLD)
+                    setTextColor(0xFF37474F.toInt()); setPadding(0, dp(3), 0, dp(5))
+                })
+                matches.forEach { (savedName, savedRate) ->
+                    val suggestion = TextView(this@MainActivity).apply {
+                        text = "$savedName    |    पिछला बिक्री रेट: ₹${savedRate.ifBlank { "—" }}"
+                        textSize = 14f; setTextColor(0xFF263238.toInt()); setPadding(dp(8), dp(9), dp(8), dp(9))
+                        isClickable = true; isFocusable = true
+                        setOnClickListener {
+                            draftName.setText(savedName); draftName.setSelection(draftName.text.length)
+                            if (savedRate.isNotBlank()) draftRate.setText(savedRate)
+                            savedSaleItemsPanel.visibility = View.GONE
+                        }
+                    }
+                    savedSaleItemsPanel.addView(suggestion)
+                    savedSaleItemsPanel.addView(View(this@MainActivity).apply { setBackgroundColor(0xFFE0E5EA.toInt()) }, LinearLayout.LayoutParams(-1, dp(1)))
+                }
+            }
+            listOf(draftCode, draftName, savedSaleItemsPanel, draftQty, draftRate, draftPurchaseGst, draftHsn).forEach { entryBox.addView(it) }
+            draftName.addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { refreshSavedSaleItemSuggestions(s?.toString().orEmpty()) }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
             val itemListHeader = TextView(this@MainActivity).apply { text = "जोड़ी गई आइटम"; textSize = 14f; setTypeface(null, android.graphics.Typeface.BOLD); setPadding(0, dp(10), 0, dp(4)) }
             val itemCountButton = Button(this@MainActivity).apply { text = "0 आइटम"; textSize = 12f; minHeight = dp(34); minimumHeight = dp(34); setPadding(dp(8), 0, dp(8), 0); isAllCaps = false }
             val listHeader = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; addView(itemListHeader, LinearLayout.LayoutParams(0, -2, 1f)); addView(itemCountButton, LinearLayout.LayoutParams(-2, -2)) }
@@ -2577,17 +2651,42 @@ class MainActivity : AppCompatActivity() {
                 val row = InvoiceLineViews(code, name, qty, rate, gst, hsn, itemId)
                 rows.add(row)
                 val summary = TextView(this@MainActivity).apply {
-                    text = "${rows.size}. ${itemName.ifBlank { "आइटम" }}  |  मात्रा: $qtyValue  |  रेट: ₹${ratePaise?.div(100.0) ?: "—"}" + if (kind == "PURCHASE") "  |  GST: $gstRate%" else ""
                     textSize = 14f; setPadding(dp(10), dp(9), dp(10), dp(9)); setTextColor(0xFF263238.toInt()); background = rounded(0xFFF2F5F7.toInt(), 10)
+                }
+                row.summary = summary
+                fun refreshSummary() {
+                    val index = rows.indexOf(row) + 1
+                    val q = row.quantity.text.toString()
+                    val r = row.rate.text.toString().toDoubleOrNull() ?: 0.0
+                    val quantity = q.toDoubleOrNull() ?: 0.0
+                    summary.text = "$index. ${row.name.text}  |  मात्रा: $q  |  रेट: ₹${"%.2f".format(r)}  |  कुल: ₹${"%.2f".format(quantity * r)}" + if (kind == "PURCHASE") "  |  GST: ${row.gst.text}%" else ""
+                }
+                refreshSummary()
+                val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
+                val container = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(5)); addView(summary) }
+                val edit = Button(this@MainActivity).apply {
+                    text = "Edit"; isAllCaps = false; minHeight = dp(36)
                     setOnClickListener {
-                        draftCode.setText(code.text); draftName.setText(name.text); draftQty.setText(qty.text); draftRate.setText(rate.text); draftPurchaseGst.setText(gst.text); draftHsn.setText(hsn.text)
-                        rows.remove(row); linesBox.removeView(this); refreshItemCount(); toast("आइटम एडिट के लिए ऊपर लाई गई है; सुधार के बाद फिर जोड़ें")
+                        draftCode.setText(row.code.text); draftName.setText(row.name.text); draftQty.setText(row.quantity.text); draftRate.setText(row.rate.text); draftPurchaseGst.setText(row.gst.text); draftHsn.setText(row.hsn.text)
+                        editingRow = row
+                        addButton?.text = "बदलाव सेव करें"
+                        draftName.requestFocus()
+                        toast("आइटम एडिट करें और बदलाव सेव करें")
                     }
                 }
-                linesBox.addView(summary)
+                val delete = Button(this@MainActivity).apply {
+                    text = "हटाएँ"; isAllCaps = false; minHeight = dp(36)
+                    setOnClickListener {
+                        AlertDialog.Builder(this@MainActivity).setMessage("${row.name.text} हटाएँ?").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ ->
+                            rows.remove(row); linesBox.removeView(container); refreshItemCount(); rows.forEachIndexed { i, r -> r.summary?.text = r.summary?.text?.toString()?.replace(Regex("^\\d+\\."), "${i + 1}.") ?: "" }
+                            if (editingRow === row) { editingRow = null; addButton?.text = "+ आइटम जोड़ें" }
+                        }.show()
+                    }
+                }
+                actions.addView(edit); actions.addView(delete)
+                container.addView(actions)
+                linesBox.addView(container)
                 refreshItemCount()
-                // Keep the customer/header and item editor fixed; scroll only the
-                // added-item viewport to the newest spoken or manually added line.
                 itemListScroll?.post { itemListScroll?.fullScroll(View.FOCUS_DOWN) }
             }
             fun commitDraftLine(): Boolean {
@@ -2595,7 +2694,16 @@ class MainActivity : AppCompatActivity() {
                 val itemGst = if (kind == "PURCHASE") draftPurchaseGst.text.toString().trim().toDoubleOrNull() else 0.0
                 if (n.isBlank() || q == null || q <= 0 || r == null || r < 0 || itemGst == null || itemGst !in 0.0..100.0) { toast("आइटम का नाम, मात्रा, रेट और सप्लायर बिल वाला GST सही भरें"); return false }
                 val paise = kotlin.math.round(r * 100).toLong()
-                addLine(n, q.toString(), paise, itemGst, draftHsn.text.toString().trim(), draftCode.text.toString().trim())
+                if (kind == "SALE") saveSoldItemSuggestion(n, r.toString())
+                val target = editingRow
+                if (target != null) {
+                    target.code.setText(draftCode.text); target.name.setText(n); target.quantity.setText(q.toString()); target.rate.setText(r.toString()); target.gst.setText(itemGst.toString()); target.hsn.setText(draftHsn.text)
+                    val summary = target.summary
+                    val index = rows.indexOf(target) + 1
+                    summary?.text = "$index. $n  |  मात्रा: ${q}  |  रेट: ₹${"%.2f".format(r)}  |  कुल: ₹${"%.2f".format(q * r)}" + if (kind == "PURCHASE") "  |  GST: $itemGst%" else ""
+                    editingRow = null; addButton?.text = "+ आइटम जोड़ें"
+                    toast("आइटम अपडेट हो गई")
+                } else addLine(n, q.toString(), paise, itemGst, draftHsn.text.toString().trim(), draftCode.text.toString().trim())
                 draftCode.setText(""); draftName.setText(""); draftQty.setText("1"); draftRate.setText(""); draftPurchaseGst.setText("0"); draftHsn.setText("")
                 return true
             }
@@ -2619,27 +2727,86 @@ class MainActivity : AppCompatActivity() {
                     val value = barcode.rawValue.orEmpty(); if (value.isBlank()) toast("स्कैन में कोड नहीं मिला") else applyDraftItemCode(value)
                 }.addOnCanceledListener { toast("स्कैन रद्द किया गया") }.addOnFailureListener { error -> toast("Scanner उपलब्ध नहीं: ${error.localizedMessage ?: "फिर कोशिश करें"}") } }
             }
-            fun listenForVoiceItem() {
-                launchVoiceRecognition(draftName) { spoken ->
-                    val parsed = parseVoiceItemPhrase(spoken)
-                    if (parsed.first.isBlank()) { draftName.setText(spoken.trim()); toast("आइटम का नाम समझ नहीं आया; मात्रा और रेट जाँचें") }
-                    else {
-                        draftName.setText(parsed.first)
-                        // Quantity-first phrases (e.g. "पाँच सूट पाँच सौ रुपये") are
-                        // parsed as quantity + item + rate. If quantity is omitted,
-                        // use the editor's normal default of 1 and still auto-add.
-                        val voiceQuantity = parsed.second ?: "1"
-                        draftQty.setText(voiceQuantity)
-                        parsed.third?.let { draftRate.setText(it) }
-                        if (parsed.third != null) {
-                            val added = commitDraftLine()
-                            if (added && continuousVoiceEntry) { toast("${rows.size}वीं आइटम जुड़ गई। अगली आइटम बोलें।"); startNextVoiceEntry?.invoke() }
-                        } else toast("आइटम का रेट समझ नहीं आया; रेट जाँचकर जोड़ें")
-                    }
-                }
+            fun processSpokenItem(spoken: String) {
+                val parsed = parseVoiceItemPhrase(spoken)
+                if (parsed.first.isBlank()) { draftName.setText(spoken.trim()); voiceStatus?.text = "आइटम समझ नहीं आया — जाँचें"; return }
+                draftName.setText(parsed.first)
+                draftQty.setText(parsed.second ?: "1")
+                parsed.third?.let { draftRate.setText(it) }
+                if (parsed.third != null) {
+                    val added = commitDraftLine()
+                    if (added) { voiceStatus?.text = "${rows.size} आइटम जुड़ीं — अगली बोलें"; toast("${rows.size}वीं आइटम जुड़ गई") }
+                } else { voiceStatus?.text = "रेट समझ नहीं आया — रेट भरकर जोड़ें"; toast("रेट जाँचकर आइटम जोड़ें") }
             }
-            startVoiceEntryForCurrentRow = { continuousVoiceEntry = true; listenForVoiceItem() }
-            startNextVoiceEntry = { if (continuousVoiceEntry) listenForVoiceItem() }
+            fun stopContinuousVoice() {
+                continuousVoiceEntry = false
+                restartVoiceRunnable?.let { voiceHandler.removeCallbacks(it) }
+                try { continuousRecognizer?.stopListening() } catch (_: Exception) { }
+                try { continuousRecognizer?.cancel() } catch (_: Exception) { }
+                voiceToggle?.text = "🎙 बोलना शुरू करें"
+                voiceStatus?.text = "Voice बंद है"
+            }
+            fun beginContinuousVoice() {
+                if (!SpeechRecognizer.isRecognitionAvailable(this@MainActivity)) { toast("इस फोन में Speech Recognition उपलब्ध नहीं है"); return }
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 107)
+                    toast("Microphone अनुमति दें, फिर Voice बटन दबाएँ")
+                    return
+                }
+                if (continuousRecognizer == null) continuousRecognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
+                val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "en-IN") ?: "en-IN"
+                val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale)
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+                }
+                if (!recognizerListenerReady) {
+                    continuousRecognizer?.setRecognitionListener(object : RecognitionListener {
+                        override fun onReadyForSpeech(params: Bundle?) { voiceStatus?.text = "🎙 सुन रहा है… आइटम बोलें" }
+                        override fun onBeginningOfSpeech() { voiceStatus?.text = "🎙 आवाज़ मिली…" }
+                        override fun onRmsChanged(rmsdB: Float) { }
+                        override fun onBufferReceived(buffer: ByteArray?) { }
+                        override fun onEndOfSpeech() { voiceStatus?.text = "आवाज़ समझ रहा है…" }
+                        override fun onError(error: Int) {
+                            if (!continuousVoiceEntry) return
+                            if (error != SpeechRecognizer.ERROR_NO_MATCH && error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                                voiceStatus?.text = "Voice में रुकावट — फिर शुरू करें"
+                                stopContinuousVoice()
+                                return
+                            }
+                            voiceStatus?.text = "फिर सुनने की तैयारी…"
+                            restartVoiceRunnable = Runnable { if (continuousVoiceEntry) try { continuousRecognizer?.startListening(speechIntent) } catch (_: Exception) { stopContinuousVoice() } }
+                            voiceHandler.postDelayed(restartVoiceRunnable!!, if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) 350L else 900L)
+                        }
+                        override fun onResults(results: Bundle?) {
+                            if (!continuousVoiceEntry) return
+                            val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                            if (spoken.isNotBlank()) processSpokenItem(spoken)
+                            restartVoiceRunnable = Runnable { if (continuousVoiceEntry) try { continuousRecognizer?.startListening(speechIntent) } catch (_: Exception) { stopContinuousVoice() } }
+                            voiceHandler.postDelayed(restartVoiceRunnable!!, 450L)
+                        }
+                        override fun onPartialResults(partialResults: Bundle?) { }
+                        override fun onEvent(eventType: Int, params: Bundle?) { }
+                    })
+                    recognizerListenerReady = true
+                }
+                continuousVoiceEntry = true
+                voiceToggle?.text = "■ Voice रोकें"
+                try { continuousRecognizer?.startListening(speechIntent) } catch (e: Exception) { stopContinuousVoice(); toast("Voice शुरू नहीं हो सकी: ${e.localizedMessage}") }
+            }
+            val voicePanel = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(8), dp(5), dp(8), dp(5)); background = rounded(0xFFEAF4FF.toInt(), 12)
+            }
+            voiceStatus = TextView(this@MainActivity).apply { text = "Voice बंद है"; textSize = 12f; setTextColor(0xFF245A78.toInt()) }
+            voiceToggle = Button(this@MainActivity).apply { text = "🎙 बोलना शुरू करें"; isAllCaps = false; minHeight = dp(40); setOnClickListener { if (continuousVoiceEntry) stopContinuousVoice() else beginContinuousVoice() } }
+            voicePanel.addView(voiceStatus, LinearLayout.LayoutParams(0, -2, 1f)); voicePanel.addView(voiceToggle)
+            entryBox.addView(voicePanel, 0)
+            startVoiceEntryForCurrentRow = { beginContinuousVoice() }
+            startNextVoiceEntry = { if (continuousVoiceEntry) beginContinuousVoice() }
             if (existingLines.isEmpty()) { /* first item is entered in the fixed editor above */ }
             else existingLines.forEach { line -> addLine(line.itemNameSnapshot, line.quantity.toString(), line.ratePaise, line.gstRatePercent, line.hsnCode, line.itemCodeSnapshot, line.itemId) }
             val discount = editField("छूट (₹)", (existing?.discountPaise?.div(100.0) ?: 0.0).toString())
@@ -2669,6 +2836,7 @@ class MainActivity : AppCompatActivity() {
             box.addView(stateLabel); box.addView(stateSpinner)
             box.addView(entryBox); box.addView(lookup); box.addView(scan)
             val add = Button(this@MainActivity).apply { text = "+ आइटम जोड़ें"; setOnClickListener { commitDraftLine() } }
+            addButton = add
             box.addView(add); box.addView(listHeader); box.addView(linesBox)
             box.addView(discount); box.addView(invoiceGst); box.addView(taxInfo); box.addView(note)
             if (kind == "PURCHASE") {
@@ -2778,10 +2946,14 @@ class MainActivity : AppCompatActivity() {
                 .setView(root)
                 .setNegativeButton("रद्द", null)
                 .setNeutralButton("सेव", null)
-                .setPositiveButton("🎙", null)
+                .setPositiveButton("Voice", null)
                 .create()
             dialog.setOnDismissListener {
                 continuousVoiceEntry = false
+                restartVoiceRunnable?.let { voiceHandler.removeCallbacks(it) }
+                try { continuousRecognizer?.cancel(); continuousRecognizer?.destroy() } catch (_: Exception) { }
+                continuousRecognizer = null
+                recognizerListenerReady = false
                 startNextVoiceEntry = null
                 pendingVoiceHandler = null
                 pendingVoiceInput = null
@@ -2817,31 +2989,39 @@ class MainActivity : AppCompatActivity() {
                     lines = lineInputs,
                     attachmentPath = if (kind == "PURCHASE") pendingPurchaseAttachmentPath else ""
                 )
-                lifecycleScope.launch(Dispatchers.IO) { try {
-                    val repo = InvoiceRepository(db)
-                    if (existing == null) {
-                        if (kind == "SALE" && saleSettlementMode == "CASH") repo.createCashSale(input) else repo.create(input)
-                    } else repo.update(existing.id, input)
-                    invoiceSaved = true
-                    if (existing != null && existing.attachmentPath.isNotBlank() && existing.attachmentPath != input.attachmentPath) resolvePurchaseAttachment(existing.attachmentPath).delete()
-                    withContext(Dispatchers.Main) { toast("बिल सेव हो गया"); dialog.dismiss() }
-                } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल सेव नहीं हुआ") } } }
+                val previewLines = lineInputs.mapIndexed { index, line ->
+                    val qty = line.quantity
+                    val rate = line.ratePaise / 100.0
+                    val amount = qty * rate
+                    "${index + 1}. ${line.itemName}  |  मात्रा: $qty  |  रेट: ₹${"%.2f".format(rate)}  |  कुल: ₹${"%.2f".format(amount)}"
                 }
-                val voiceButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                voiceButton.setOnClickListener {
-                    if (continuousVoiceEntry) {
-                        continuousVoiceEntry = false
-                        startNextVoiceEntry = null
-                        voiceButton.text = "🎙"
-                        toast("Voice Entry रोक दी गई।")
-                    } else {
-                        val start = startVoiceEntryForCurrentRow
-                        if (start == null) toast("पहले आइटम की लाइन जोड़ें") else {
-                            voiceButton.text = "■"
-                            start()
-                        }
-                    }
+                val subtotalRupees = lineInputs.sumOf { it.quantity * it.ratePaise } / 100.0
+                val previewText = buildString {
+                    append("बिल नंबर: ${input.invoiceNumber}\n")
+                    append("ग्राहक / पार्टी: ${selectedParty.name}\n\n")
+                    append(previewLines.joinToString("\n"))
+                    append("\n\nआइटम कुल: ₹${"%.2f".format(subtotalRupees)}")
+                    append("\nछूट: ₹${"%.2f".format(d)}")
+                    append("\nGST दर: ${if (kind == "SALE") invoiceGst.text else "प्रत्येक खरीद आइटम के अनुसार"}%")
+                    append("\n\nकृपया सभी आइटम, मात्रा और रेट जाँच लें। अभी बिल सेव नहीं हुआ है।")
                 }
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("बिल Preview – सेव करने से पहले जाँचें")
+                    .setMessage(previewText)
+                    .setNegativeButton("वापस Edit करें", null)
+                    .setPositiveButton("सही है – फाइनल बिल सेव करें") { _, _ ->
+                        lifecycleScope.launch(Dispatchers.IO) { try {
+                            val repo = InvoiceRepository(db)
+                            if (existing == null) {
+                                if (kind == "SALE" && saleSettlementMode == "CASH") repo.createCashSale(input) else repo.create(input)
+                            } else repo.update(existing.id, input)
+                            invoiceSaved = true
+                            if (existing != null && existing.attachmentPath.isNotBlank() && existing.attachmentPath != input.attachmentPath) resolvePurchaseAttachment(existing.attachmentPath).delete()
+                            withContext(Dispatchers.Main) { toast("बिल सेव हो गया"); dialog.dismiss() }
+                        } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल सेव नहीं हुआ") } } }
+                    }.show()
+                }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).visibility = View.GONE
             }
             dialog.show()
             dialog.window?.setLayout(-1, (resources.displayMetrics.heightPixels * 0.92f).toInt())

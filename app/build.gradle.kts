@@ -24,8 +24,8 @@ android {
         applicationId = "in.bhajan.bfpbusinesspro"
         minSdk = 24
         targetSdk = 35
-        versionCode = 552
-        versionName = "5.52.0"
+        versionCode = 553
+        versionName = "5.53.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
