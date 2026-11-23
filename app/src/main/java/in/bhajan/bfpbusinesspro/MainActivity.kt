@@ -1757,34 +1757,51 @@ class MainActivity : AppCompatActivity() {
         listOf(code, name, category, purchase, sale, stock, minimumStock, hsn).forEach { box.addView(it) }
         AlertDialog.Builder(this).setTitle(if (existing == null) "नया आइटम" else "आइटम एडिट")
             .setView(ScrollView(this).apply { addView(box) }).setNegativeButton("रद्द", null)
-            .apply { if (existing != null) setNeutralButton("स्टॉक समायोजन / हिस्ट्री", null) }
+            .apply {
+                if (existing != null) setNeutralButton("स्टॉक समायोजन / हिस्ट्री", null)
+                else setNeutralButton("सेव और नया", null)
+            }
             .setPositiveButton("सेव", null).create().also { dialog ->
-            dialog.setOnShowListener {
-                if (existing != null) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { stockAdjustmentDialog(existing) }
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                    val c = code.text.toString().trim().uppercase()
-                    val n = name.text.toString().trim()
-                    val pr = purchase.text.toString().toDoubleOrNull(); val sr = sale.text.toString().toDoubleOrNull()
-                    val q = stock.text.toString().toDoubleOrNull(); val minQ = minimumStock.text.toString().toDoubleOrNull()
-                    if (c.isBlank() || n.isBlank() || pr == null || sr == null || q == null || minQ == null || pr < 0 || sr < 0 || q < 0 || minQ < 0 || !q.isFinite() || !minQ.isFinite()) {
-                        toast("Item Code, नाम, रेट, स्टॉक और अलर्ट सीमा सही भरें"); return@setOnClickListener
+                dialog.setOnShowListener {
+                    if (existing != null) {
+                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { stockAdjustmentDialog(existing) }
                     }
-                    lifecycleScope.launch {
-                        try {
-                            withContext(Dispatchers.IO) {
-                                val conflict = db.dao().findItemCodeConflict(c, existing?.id ?: 0L)
-                                require(conflict == null) { "यह Item Code पहले से मौजूद है" }
-                                val entity = ItemEntity(id = existing?.id ?: 0L, name = n, itemCode = c, category = category.text.toString().trim(),
-                                    purchaseRatePaise = kotlin.math.round(pr * 100).toLong(), saleRatePaise = kotlin.math.round(sr * 100).toLong(),
-                                    quantity = q, hsnCode = hsn.text.toString().trim(), gstRatePercent = 0.0, minimumStockQuantity = minQ)
-                                if (existing == null) {
-                                    StockRepository(db).insertItemWithOpeningStock(entity)
-                                } else db.dao().updateItem(entity)
-                            }
-                            dialog.dismiss()
-                        } catch (e: Exception) { toast(e.message ?: "आइटम सेव नहीं हुआ") }
+
+                    fun saveItem(andNew: Boolean) {
+                        val c = code.text.toString().trim().uppercase()
+                        val n = name.text.toString().trim()
+                        val pr = purchase.text.toString().toDoubleOrNull(); val sr = sale.text.toString().toDoubleOrNull()
+                        val q = stock.text.toString().toDoubleOrNull(); val minQ = minimumStock.text.toString().toDoubleOrNull()
+                        if (c.isBlank() || n.isBlank() || pr == null || sr == null || q == null || minQ == null || pr < 0 || sr < 0 || q < 0 || minQ < 0 || !q.isFinite() || !minQ.isFinite()) {
+                            toast("Item Code, नाम, रेट, स्टॉक और अलर्ट सीमा सही भरें"); return
+                        }
+                        lifecycleScope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    val conflict = db.dao().findItemCodeConflict(c, existing?.id ?: 0L)
+                                    require(conflict == null) { "यह Item Code पहले से मौजूद है" }
+                                    val entity = ItemEntity(id = existing?.id ?: 0L, name = n, itemCode = c, category = category.text.toString().trim(),
+                                        purchaseRatePaise = kotlin.math.round(pr * 100).toLong(), saleRatePaise = kotlin.math.round(sr * 100).toLong(),
+                                        quantity = q, hsnCode = hsn.text.toString().trim(), gstRatePercent = 0.0, minimumStockQuantity = minQ)
+                                    if (existing == null) StockRepository(db).insertItemWithOpeningStock(entity)
+                                    else db.dao().updateItem(entity)
+                                }
+                                if (andNew && existing == null) {
+                                    code.text.clear(); name.text.clear(); category.text.clear()
+                                    purchase.setText("0.0"); sale.setText("0.0"); stock.setText("0.0")
+                                    minimumStock.setText("2.0"); hsn.text.clear()
+                                    name.requestFocus()
+                                    toast("आइटम सेव हो गया — अगला आइटम भरें")
+                                } else {
+                                    dialog.dismiss()
+                                    toast("आइटम सेव हो गया")
+                                }
+                            } catch (e: Exception) { toast(e.message ?: "आइटम सेव नहीं हुआ") }
+                        }
                     }
-                } }
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { saveItem(false) }
+                    if (existing == null) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { saveItem(true) }
+                }
                 dialog.show()
             }
     }
