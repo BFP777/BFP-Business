@@ -3216,43 +3216,108 @@ class MainActivity : AppCompatActivity() {
 
     /** Splits a spoken item phrase into an item name and an optional trailing price. */
     private fun parseVoiceItemPhrase(raw: String): Triple<String, String?, String?> {
-        val originalTokens = raw.replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-        val tokens = originalTokens.map { it.lowercase(java.util.Locale.ROOT) }
+        // Accept both natural speech ("पाँच सूट पाँच सौ रुपये") and labelled
+        // speech ("quantity five suit rate five hundred").
+        val cleaned = raw.replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim()
+        if (cleaned.isBlank()) return Triple("", null, null)
+        val originalTokens = cleaned.split(Regex("\\s+")).filter { it.isNotBlank() }
+        fun normalizeDigits(value: String): String {
+            val devanagari = "०१२३४५६७८९"
+            return buildString {
+                value.forEach { ch ->
+                    val index = devanagari.indexOf(ch)
+                    append(if (index >= 0) ('0' + index) else ch)
+                }
+            }
+        }
+        val tokens = originalTokens.map { normalizeDigits(it).lowercase(java.util.Locale.ROOT) }
         val small = mapOf(
-            "zero" to 0L, "oh" to 0L, "one" to 1L, "two" to 2L, "three" to 3L, "four" to 4L, "five" to 5L, "six" to 6L, "seven" to 7L, "eight" to 8L, "nine" to 9L,
-            "ten" to 10L, "eleven" to 11L, "twelve" to 12L, "thirteen" to 13L, "fourteen" to 14L, "fifteen" to 15L, "sixteen" to 16L, "seventeen" to 17L, "eighteen" to 18L, "nineteen" to 19L,
-            "बीस" to 20L, "इक्कीस" to 21L, "बाईस" to 22L, "तेईस" to 23L, "चौबीस" to 24L, "पच्चीस" to 25L, "तीस" to 30L, "चालीस" to 40L, "पचास" to 50L, "साठ" to 60L, "सत्तर" to 70L, "अस्सी" to 80L, "नब्बे" to 90L,
-            "एक" to 1L, "दो" to 2L, "तीन" to 3L, "चार" to 4L, "पांच" to 5L, "पाँच" to 5L, "छह" to 6L, "सात" to 7L, "आठ" to 8L, "नौ" to 9L, "दस" to 10L, "ग्यारह" to 11L, "बारह" to 12L, "तेरह" to 13L, "चौदह" to 14L, "पंद्रह" to 15L, "सोलह" to 16L, "सत्रह" to 17L, "अठारह" to 18L, "उन्नीस" to 19L
+            "zero" to 0L, "oh" to 0L, "one" to 1L, "two" to 2L, "three" to 3L, "four" to 4L,
+            "five" to 5L, "six" to 6L, "seven" to 7L, "eight" to 8L, "nine" to 9L,
+            "ten" to 10L, "eleven" to 11L, "twelve" to 12L, "thirteen" to 13L, "fourteen" to 14L,
+            "fifteen" to 15L, "sixteen" to 16L, "seventeen" to 17L, "eighteen" to 18L, "nineteen" to 19L,
+            "एक" to 1L, "दो" to 2L, "तीन" to 3L, "चार" to 4L, "पांच" to 5L, "पाँच" to 5L,
+            "छह" to 6L, "छः" to 6L, "सात" to 7L, "आठ" to 8L, "नौ" to 9L, "दस" to 10L,
+            "ग्यारह" to 11L, "बारह" to 12L, "तेरह" to 13L, "चौदह" to 14L, "पंद्रह" to 15L,
+            "सोलह" to 16L, "सत्रह" to 17L, "अठारह" to 18L, "उन्नीस" to 19L,
+            "बीस" to 20L, "इक्कीस" to 21L, "बाईस" to 22L, "तेईस" to 23L, "चौबीस" to 24L,
+            "पच्चीस" to 25L, "तीस" to 30L, "चालीस" to 40L, "पचास" to 50L, "साठ" to 60L,
+            "सत्तर" to 70L, "अस्सी" to 80L, "नब्बे" to 90L
         )
-        val tens = mapOf("twenty" to 20L, "thirty" to 30L, "forty" to 40L, "fifty" to 50L, "sixty" to 60L, "seventy" to 70L, "eighty" to 80L, "ninety" to 90L)
+        val tens = mapOf("twenty" to 20L, "thirty" to 30L, "forty" to 40L, "fifty" to 50L,
+            "sixty" to 60L, "seventy" to 70L, "eighty" to 80L, "ninety" to 90L)
         val currency = setOf("rupee", "rupees", "rs", "inr", "रुपया", "रुपये", "रुपए", "रूपये", "रूपए", "रु")
-        fun numeric(token: String): Boolean = token.toLongOrNull() != null || token.toDoubleOrNull() != null || token in small || token in tens || token in setOf("hundred", "हंड्रेड", "सौ", "thousand", "हजार", "हज़ार", "लाख")
+        val quantityLabels = setOf("quantity", "qty", "मात्रा", "क्वांटिटी")
+        val rateLabels = setOf("rate", "रेट", "price", "कीमत", "दाम", "भाव")
+        val scales = setOf("hundred", "हंड्रेड", "सौ", "thousand", "हजार", "हज़ार", "लाख")
+        fun numeric(token: String) = token.toLongOrNull() != null || token.toDoubleOrNull() != null ||
+            token in small || token in tens || token in scales
         fun parseNumber(words: List<String>): Double? {
-            var total = 0.0; var current = 0.0
-            for (t in words.filterNot { it in currency || it == "and" || it == "और" }) {
-                val digit = t.toDoubleOrNull()
+            var total = 0.0
+            var current = 0.0
+            for (word in words.filterNot { it in currency || it == "and" || it == "और" }) {
+                val digit = word.toDoubleOrNull()
                 when {
                     digit != null -> current += digit
-                    small[t] != null -> current += small.getValue(t)
-                    tens[t] != null -> current += tens.getValue(t)
-                    t == "hundred" || t == "हंड्रेड" || t == "सौ" -> current = (if (current == 0.0) 1.0 else current) * 100.0
-                    t == "thousand" || t == "हजार" || t == "हज़ार" -> { total += (if (current == 0.0) 1.0 else current) * 1000.0; current = 0.0 }
-                    t == "लाख" -> { total += (if (current == 0.0) 1.0 else current) * 100000.0; current = 0.0 }
+                    small[word] != null -> current += small.getValue(word)
+                    tens[word] != null -> current += tens.getValue(word)
+                    word in setOf("hundred", "हंड्रेड", "सौ") ->
+                        current = (if (current == 0.0) 1.0 else current) * 100.0
+                    word in setOf("thousand", "हजार", "हज़ार") -> {
+                        total += (if (current == 0.0) 1.0 else current) * 1000.0
+                        current = 0.0
+                    }
+                    word == "लाख" -> {
+                        total += (if (current == 0.0) 1.0 else current) * 100000.0
+                        current = 0.0
+                    }
                 }
             }
             return (total + current).takeIf { it > 0.0 && it <= 100000000.0 }
         }
-        var qEnd = 0
-        while (qEnd < tokens.size && numeric(tokens[qEnd])) qEnd++
-        val quantity = if (qEnd > 0) parseNumber(tokens.subList(0, qEnd)) else null
+
+        // An explicit "rate/price" marker is the most reliable boundary.
+        val rateMarker = tokens.indexOfFirst { it in rateLabels }
         var rateStart = tokens.size
-        var i = tokens.lastIndex
-        while (i >= qEnd && (numeric(tokens[i]) || tokens[i] in currency || tokens[i] == "and" || tokens[i] == "और")) { rateStart = i; i-- }
-        val rateWords = if (rateStart < tokens.size) tokens.subList(rateStart, tokens.size) else emptyList()
-        val rate = parseNumber(rateWords)
+        var rate: Double? = null
+        if (rateMarker >= 0) {
+            rateStart = rateMarker
+            val priceWords = tokens.drop(rateMarker + 1).takeWhile {
+                numeric(it) || it in currency || it == "and" || it == "और"
+            }
+            rate = parseNumber(priceWords)
+        } else {
+            var cursor = tokens.lastIndex
+            while (cursor >= 0 && (numeric(tokens[cursor]) || tokens[cursor] in currency ||
+                    tokens[cursor] == "and" || tokens[cursor] == "और")) cursor--
+            rateStart = cursor + 1
+            if (rateStart < tokens.size) rate = parseNumber(tokens.subList(rateStart, tokens.size))
+        }
+
+        // Quantity may be explicitly labelled or spoken as the first number.
+        var quantityStart = 0
+        while (quantityStart < tokens.size && tokens[quantityStart] in quantityLabels) quantityStart++
+        var quantityEnd = quantityStart
+        if (quantityStart < rateStart && numeric(tokens[quantityStart])) {
+            while (quantityEnd < rateStart && (numeric(tokens[quantityEnd]) ||
+                    tokens[quantityEnd] == "and" || tokens[quantityEnd] == "और")) quantityEnd++
+        }
+        val quantity = if (quantityEnd > quantityStart)
+            parseNumber(tokens.subList(quantityStart, quantityEnd)) else null
+
+        val itemStart = if (quantityEnd > quantityStart) quantityEnd else
+            if (quantityStart > 0) quantityStart else 0
         val itemEnd = if (rate != null) rateStart else tokens.size
-        val item = originalTokens.drop(qEnd).take((itemEnd - qEnd).coerceAtLeast(0)).joinToString(" ").trim()
-        return Triple(item.ifBlank { raw.trim() }, quantity?.toString()?.removeSuffix(".0"), rate?.let { String.format(java.util.Locale.US, "%.2f", it).trimEnd('0').trimEnd('.') })
+        val itemTokens = originalTokens.subList(itemStart.coerceAtMost(originalTokens.size),
+            itemEnd.coerceAtLeast(itemStart).coerceAtMost(originalTokens.size))
+            .filterNot { normalizeDigits(it).lowercase(java.util.Locale.ROOT) in rateLabels ||
+                normalizeDigits(it).lowercase(java.util.Locale.ROOT) in quantityLabels }
+        val item = itemTokens.joinToString(" ").trim()
+        return Triple(
+            item.ifBlank { raw.trim() },
+            quantity?.toString()?.removeSuffix(".0"),
+            rate?.let { String.format(java.util.Locale.US, "%.2f", it).trimEnd('0').trimEnd('.') }
+        )
     }
 
     private fun editField(hintText: String, value: String): EditText = EditText(this).apply { hint = hintText; setText(value); setSingleLine(true) }
