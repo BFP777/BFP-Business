@@ -2502,8 +2502,8 @@ class MainActivity : AppCompatActivity() {
                     selectedPartyId = customer.id
                     val code = customer.gstNumber.takeIf { it.length >= 2 }?.substring(0, 2) ?: businessProfile.stateCode
                     val idx = indianStates.indexOfFirst { it.second == code }; if (idx >= 0) stateSpinner.setSelection(idx)
-                    val addressLine = customer.address.trim()
-                    selectedInfo.text = if (addressLine.isBlank()) customer.name else "${customer.name}\n$addressLine"
+                    // Keep the selected customer header intentionally minimal: name only.
+                    selectedInfo.text = customer.name
                     selectedInfo.setBackgroundColor(0xFFE8F5E9.toInt())
                     customerSearchPanel.visibility = View.GONE
                     customerSummaryRow.visibility = View.VISIBLE
@@ -2827,7 +2827,7 @@ class MainActivity : AppCompatActivity() {
             if (existingLines.isEmpty()) { /* first item is entered in the fixed editor above */ }
             else existingLines.forEach { line -> addLine(line.itemNameSnapshot, line.quantity.toString(), line.ratePaise, line.gstRatePercent, line.hsnCode, line.itemCodeSnapshot, line.itemId) }
             val discount = editField("छूट (₹)", (existing?.discountPaise?.div(100.0) ?: 0.0).toString())
-            val invoiceGst = editField("फाइनल बिल पर GST दर % (पूरे बिल पर)", (existingLines.firstOrNull()?.gstRatePercent ?: 0.0).toString())
+            val invoiceGst = editField("फाइनल बिल पर GST दर % (पूरे बिल पर)", (existingLines.firstOrNull()?.gstRatePercent ?: 5.0).toString())
             invoiceGst.visibility = if (kind == "SALE") View.VISIBLE else View.GONE
             val taxInfo = TextView(this@MainActivity).apply {
                 text = if (kind == "SALE") "GST अलग-अलग सूट पर नहीं; फाइनल बिल की कुल टैक्सेबल रकम पर एक ही दर से लगेगा।" else "हर Purchase आइटम का GST सप्लायर के बिल के अनुसार अलग-अलग दर्ज करें।"
@@ -2849,7 +2849,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 box.addView(billTopRow)
             } else box.addView(number)
-            if (kind == "SALE") salePartyPicker?.let { box.addView(it) } else { box.addView(TextView(this@MainActivity).apply { text = "पार्टी चुनें" }); party?.let { box.addView(it) } }
+            if (kind == "PURCHASE") { box.addView(TextView(this@MainActivity).apply { text = "पार्टी चुनें" }); party?.let { box.addView(it) } }
             box.addView(stateLabel); box.addView(stateSpinner)
             box.addView(entryBox); box.addView(lookup); box.addView(scan)
             val add = Button(this@MainActivity).apply { text = "+ आइटम जोड़ें"; setOnClickListener { commitDraftLine() } }
@@ -2922,47 +2922,33 @@ class MainActivity : AppCompatActivity() {
                 box.addView(attachmentStatus); box.addView(attachmentButton); box.addView(openAttachment); box.addView(scanAttachment); box.addView(removeAttachment)
                 purchaseAttachmentOpenButtonView = openAttachment
             }
-            // Keep the bill header and item-entry controls fixed. Only the growing
-            // added-item list scrolls, so the next item can be entered without
-            // scrolling the whole invoice dialog back to the top.
-            val fixedHeader = LinearLayout(this@MainActivity).apply {
+            // DEV110: one continuous billing canvas. Only the selected customer
+            // name stays pinned at the top; item entry, growing item list, totals,
+            // GST and notes move together in one scrollable area.
+            val customerHeader = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(18), dp(6), dp(18), 0)
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                setBackgroundColor(0xFFF7F9FC.toInt())
             }
-            val bottomDetails = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(18), 0, dp(18), dp(8))
-            }
-            check((0 until box.childCount).any { box.getChildAt(it) === linesBox }) { "Invoice item list view is missing" }
-            while (box.childCount > 0 && box.getChildAt(0) !== linesBox) {
-                val child = box.getChildAt(0)
-                box.removeViewAt(0)
-                fixedHeader.addView(child)
-            }
-            box.removeView(linesBox)
-            val itemListViewport = ScrollView(this@MainActivity).apply {
-                isFillViewport = true
+            if (kind == "SALE") salePartyPicker?.let { customerHeader.addView(it) }
+            val bodyScroll = ScrollView(this@MainActivity).apply {
+                isFillViewport = false
                 isVerticalScrollBarEnabled = true
-                addView(linesBox)
+                addView(box)
             }
-            itemListScroll = itemListViewport
-            while (box.childCount > 0) {
-                val child = box.getChildAt(0)
-                box.removeViewAt(0)
-                bottomDetails.addView(child)
-            }
+            itemListScroll = bodyScroll
             val root = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                addView(fixedHeader, LinearLayout.LayoutParams(-1, -2))
-                addView(itemListViewport, LinearLayout.LayoutParams(-1, dp(156)))
-                addView(ScrollView(this@MainActivity).apply { addView(bottomDetails) }, LinearLayout.LayoutParams(-1, 0, 1f))
+                setBackgroundColor(0xFFF7F9FC.toInt())
+                addView(customerHeader, LinearLayout.LayoutParams(-1, -2))
+                addView(bodyScroll, LinearLayout.LayoutParams(-1, 0, 1f))
             }
             var invoiceSaved = false
             val dialog = AlertDialog.Builder(this@MainActivity)
                 .setTitle(if (existing == null) "नया $titleText" else "बिल एडिट")
                 .setView(root)
                 .setNegativeButton("रद्द", null)
-                .setNeutralButton("सेव", null)
+                .setNeutralButton("Save Bill", null)
                 .setPositiveButton("Voice", null)
                 .create()
             dialog.setOnDismissListener {
@@ -2978,6 +2964,8 @@ class MainActivity : AppCompatActivity() {
                 purchaseAttachmentStatusView = null; purchaseAttachmentButtonView = null; purchaseAttachmentOpenButtonView = null
             }
             dialog.setOnShowListener {
+                dialog.window?.setLayout(-1, -1)
+                dialog.window?.setBackgroundDrawableResource(android.R.color.white)
                 dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
                 if (draftName.text.toString().isNotBlank() || draftRate.text.toString().isNotBlank()) {
                     if (!commitDraftLine()) return@setOnClickListener
