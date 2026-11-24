@@ -124,7 +124,7 @@ class MainActivity : AppCompatActivity() {
     private fun base(title: String): LinearLayout {
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFFF5F7FB.toInt())
+            setBackgroundColor(0xFFF4F6FA.toInt())
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -149,7 +149,7 @@ class MainActivity : AppCompatActivity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(14), dp(14), dp(18))
-            setBackgroundColor(0xFFF5F7FB.toInt())
+            setBackgroundColor(0xFFF4F6FA.toInt())
         }
         root.addView(TextView(this).apply {
             text = title; textSize = 20f; gravity = Gravity.START
@@ -162,25 +162,12 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             setBackgroundColor(0xFFFFFFFF.toInt()); elevation = dp(8).toFloat(); setPadding(dp(4), dp(7), dp(4), dp(7))
         }
-        listOf("⌂\\nHOME", "＋\\nSALE", "▤\\nPURCHASE", "♙\\nPARTIES", "▥\\nREPORTS").forEachIndexed { index, label ->
+        listOf("⌂\\nHOME", "＋\\nSALE", "▤\\nPURCHASE", "♙\\nPARTIES", "▦\\nREPORTS").forEachIndexed { index, label ->
             nav.addView(TextView(this).apply {
                 text = label; gravity = Gravity.CENTER; textSize = 11f
-                val active = when (index) {
-                    0 -> title.contains("DASHBOARD") || title.startsWith("BHAJAN")
-                    1 -> title.contains("बिक्री") || title.contains("SALE")
-                    2 -> title.contains("खरीद") || title.contains("PURCHASE")
-                    3 -> title.contains("PART")
-                    else -> title.contains("REPORT")
-                }
-                setTextColor(if (active) 0xFF0879C9.toInt() else 0xFF454958.toInt())
+                setTextColor(if ((title == "DASHBOARD" && index == 0) || (title.contains("बिक्री") && index == 1) || (title.contains("खरीद") && index == 2) || (title.contains("PART") && index == 3) || (title.contains("REPORT") && index == 4)) 0xFF0879C9.toInt() else 0xFF454958.toInt())
                 typeface = android.graphics.Typeface.DEFAULT_BOLD; setPadding(0, dp(4), 0, dp(4))
-                setOnClickListener { when (index) {
-                    0 -> showDashboard()
-                    1 -> showInvoices("SALE")
-                    2 -> showInvoices("PURCHASE")
-                    3 -> showParties()
-                    else -> showReports()
-                } }
+                setOnClickListener { when (index) { 0 -> showDashboard(); 1 -> showInvoices("SALE"); 2 -> showInvoices("PURCHASE"); 3 -> showParties(); 4 -> showReports() } }
             }, LinearLayout.LayoutParams(0, dp(52), 1f))
         }
         shell.addView(nav)
@@ -2594,21 +2581,10 @@ class MainActivity : AppCompatActivity() {
                 val changeCustomer = Button(this@MainActivity).apply {
                     text = "बदलें"; isAllCaps = false; textSize = 12f; minHeight = dp(38); minimumHeight = dp(38)
                 }
-                val whatsappCustomer = Button(this@MainActivity).apply {
-                    text = "WhatsApp"; isAllCaps = false; textSize = 11f; minHeight = dp(38); minimumHeight = dp(38)
-                    setOnClickListener {
-                        val mobile = partiesMutable.firstOrNull { it.id == selectedPartyId }?.mobile.orEmpty().filter { it.isDigit() }
-                        if (mobile.isBlank()) { toast("इस ग्राहक का मोबाइल नंबर उपलब्ध नहीं है"); return@setOnClickListener }
-                        val phone = if (mobile.length == 10) "91$mobile" else mobile
-                        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$phone"))) }
-                        catch (_: Exception) { toast("WhatsApp लिंक नहीं खुल सका") }
-                    }
-                }
                 val customerSummaryRow = LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     addView(selectedInfo, LinearLayout.LayoutParams(0, -2, 1f))
-                    addView(whatsappCustomer, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(4) })
-                    addView(changeCustomer, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(4) })
+                    addView(changeCustomer, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(6) })
                 }
                 val customerSearchPanel = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
                 val customerResultsScroll = ScrollView(this@MainActivity).apply {
@@ -2616,7 +2592,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 val saleInvoices = withContext(Dispatchers.IO) { db.dao().observeInvoices("SALE").first() }
                 val customerPayments = withContext(Dispatchers.IO) { db.dao().observePayments().first() }
-                val partiesMutable = parties.toMutableList()
+                val partiesMutable: MutableList<PartyEntity> = parties.toMutableList()
                 var refreshCustomerRows: (String) -> Unit = {}
                 fun chooseCustomer(customer: PartyEntity) {
                     selectedPartyId = customer.id
@@ -2654,8 +2630,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 refreshCustomerRows = { query ->
                     results.removeAllViews()
-                    partiesMutable.filter { it.name.contains(query, true) || it.mobile.contains(query, true) }.forEach { customer ->
-                        val due = (saleInvoices.filter { it.partyId == customer.id }.sumOf { (it.totalPaise-it.paidPaise).coerceAtLeast(0L) } - customerPayments.filter { it.partyId == customer.id && it.direction == "IN" && it.invoiceId == null }.sumOf { it.amountPaise }).coerceAtLeast(0L)
+                    partiesMutable.filter { customer: PartyEntity -> customer.name.contains(query, true) || customer.mobile.contains(query, true) }.forEach { customer: PartyEntity ->
+                        val due = (saleInvoices.filter { invoice: InvoiceEntity -> invoice.partyId.toLong() == customer.id.toLong() }.sumOf { (it.totalPaise-it.paidPaise).coerceAtLeast(0L) } - customerPayments.filter { payment: PaymentEntity -> payment.partyId.toLong() == customer.id.toLong() && payment.direction == "IN" && payment.invoiceId == null }.sumOf { it.amountPaise }).coerceAtLeast(0L)
                         val item=TextView(this@MainActivity).apply { text="${customer.name}\n${customer.mobile.ifBlank { "मोबाइल उपलब्ध नहीं" }}  |  बकाया ₹${"%.2f".format(java.util.Locale.US,due/100.0)}"; textSize=14f; setTextColor(0xFF303846.toInt()); setPadding(dp(12),dp(10),dp(12),dp(10)); background=rounded(if(customer.id==selectedPartyId) 0xFFE8F5E9.toInt() else 0xFFF3F5F7.toInt(),12); setOnClickListener { chooseCustomer(customer) } }
                         results.addView(item)
                     }
@@ -3001,15 +2977,8 @@ class MainActivity : AppCompatActivity() {
                 text = "Save & New"; isAllCaps = false
                 setOnClickListener { if (commitDraftLine()) { draftName.requestFocus(); toast("अगला आइटम दर्ज करें") } }
             }
-            val itemListButton = Button(this@MainActivity).apply {
-                text = "Item List"; isAllCaps = false; textSize = 12f; minHeight = dp(48)
-                setOnClickListener {
-                    itemListScroll?.post { itemListScroll?.smoothScrollTo(0, linesBox.top) }
-                }
-            }
-            itemActions.addView(add, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(4) })
-            itemActions.addView(saveAndNew, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(4) })
-            itemActions.addView(itemListButton, LinearLayout.LayoutParams(0, dp(48), 0.82f))
+            itemActions.addView(add, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
+            itemActions.addView(saveAndNew, LinearLayout.LayoutParams(0, dp(48), 1f))
             box.addView(itemActions)
             box.addView(listHeader); box.addView(linesBox)
             box.addView(discount)

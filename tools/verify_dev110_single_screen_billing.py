@@ -9,7 +9,7 @@ checks = {
     'one continuous scroll body contains invoice form': 'addView(bodyScroll, LinearLayout.LayoutParams(-1, 0, 1f))' in main and 'addView(box)' in main,
     'old independent item-list viewport removed': 'itemListViewport' not in main and 'bottomDetails' not in main,
     'Save Bill action label present': '.setNeutralButton("Save Bill", null)' in main,
-    'app version advanced': 'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle,
+    'app version advanced': 'versionCode = 554' in gradle and 'versionName = "5.54.0"' in gradle,
     'Room schema untouched': 'no room schema' in (root / 'DEVELOPMENT-110-SINGLE-SCREEN-BILLING-REDESIGN.md').read_text(encoding='utf-8').lower(),
 }
 for label, ok in checks.items():

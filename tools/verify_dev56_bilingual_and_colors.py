@@ -4,7 +4,7 @@ main = (ROOT / 'app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt').rea
 gradle = (ROOT / 'app/build.gradle.kts').read_text()
 notes = (ROOT / 'DEVELOPMENT-56-NOTES.md').read_text()
 checks = {
-    'main navigation defaults to English-only approved five tabs': all(x in main for x in ['HOME', 'SALE', 'PURCHASE', 'PARTIES', 'REPORTS']),
+    'main navigation bilingual': 'HOME / होम' in main and 'DASHBOARD / डैशबोर्ड' in main and 'ITEMS / आइटम' in main and 'MENU / मेन्यू' in main,
     'primary menu bilingual': 'My Business / मेरा व्यवसाय' in main and 'Parties & Accounts / पार्टियाँ और खाते' in main,
     'display language remains English and voice language supports English plus Hindi': 'Display Language: English' in main and 'Voice Input Language: English' in main and 'हिंदी / Hindi' in main,
     'customer SALE and RECEIPT tabs retained': 'SALE / बिक्री' in main and 'RECEIPT / प्राप्ति' in main,
