@@ -13,7 +13,7 @@ checks = {
     'typed Room projection models exist': 'data class SupplierPurchaseSummaryRow' in entities and 'data class SupplierItemRateChangeRow' in entities,
     'supplier insights screen is reachable from menu': 'Supplier Purchase Insights / सप्लायर खरीद रिपोर्ट' in main and 'private fun showSupplierInsights()' in main,
     'screen is informational and does not post accounting entries': 'कोई खरीद/भुगतान अपने-आप नहीं बदलेगा' in main,
-    'app version advanced without database schema change': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    'app version advanced without database schema change': 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
 }
 # Execute exact DAO SQL against realistic minimal SQLite fixtures.
 queries = []

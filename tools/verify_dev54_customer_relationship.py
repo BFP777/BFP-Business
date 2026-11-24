@@ -10,7 +10,7 @@ checks = {
     'Indian 10-digit normalization': 'if (digits.length == 10) digits = "91$digits"' in main,
     'invalid phone number guard': 'digits.length !in 11..15' in main,
     'customer-specific design personalization': 'preferred?.let' in main and 'it.itemName' in main,
-    'version advanced': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    'version advanced': 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
     'database schema unchanged': 'Room schema: 9 (no database migration required)' in notes,
     'manual send clearly documented': 'user reviews and manually sends it' in notes,
 }

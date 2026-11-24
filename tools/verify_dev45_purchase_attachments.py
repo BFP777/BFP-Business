@@ -24,7 +24,7 @@ checks = {
     'legacy SQLite restore path retained': 'rawTemp.copyTo(legacyDb, overwrite = true)' in backup,
     'backup picker accepts ZIP': 'application/zip' in main,
     'backup validator supports schema v9': 'cursor.getInt(0) in 3..10' in backup and 'salary_payments' in backup,
-    'version incremented': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    'version incremented': 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
 }
 for label, ok in checks.items():
     print(f"{'PASS' if ok else 'FAIL'}: {label}")

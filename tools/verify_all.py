@@ -7,6 +7,8 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = [
     "tools/verify_dev39_ui_bank.py",
+    "tools/verify_dev113_dashboard_ui.py",
+    "tools/verify_dev114_side_menu.py",
     "tools/verify_dev40_bank_linking.py",
     "tools/verify_dev41_bank_balances.py",
     "tools/verify_dev42_daybook_bank_names.py",

@@ -4,7 +4,7 @@ main = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt').rea
 entities = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/data/Entities.kt').read_text()
 db = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt').read_text()
 dao = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/data/AppDao.kt').read_text()
-assert 'private fun showDashboard()' in main and 'Recent Transactions' in main and 'Quick Links' in main
+assert 'private fun showDashboard()' in main and 'TOTAL SALES' in main and 'TOTAL PURCHASE' in main and 'CASH BALANCE' in main and 'QUICK ACTIONS' in main
 assert 'private fun showMenu()' in main and 'HOME' in main and 'DASHBOARD' in main and 'ITEMS' in main and 'MENU' in main
 assert 'private fun showBankAccounts()' in main and 'private fun bankAccountDialog' in main
 assert 'data class BankAccountEntity' in entities and 'val accountName: String' in entities

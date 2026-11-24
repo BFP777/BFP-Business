@@ -11,7 +11,7 @@ checks = {
     'GSTR-1 export includes customer GSTIN and invoice tax totals': all(x in dao for x in ['p.gstNumber AS customerGstin', 'SUM(il.taxablePaise)', 'SUM(il.igstPaise)', 'SUM(il.cgstPaise)', 'SUM(il.sgstPaise)']),
     'CSV export uses selected date period and labels B2B/B2C provisional': 'GSTR-1 Sales CSV Export' in activity and 'BFP-GSTR1-Sales-' in activity and 'customerGstin' in activity and 'B2C' in activity,
     'Sales and Purchase HSN summaries stay separated': 'r.kind' in activity and 'HSN-WISE SUMMARY' in activity,
-    'version 5.43.0 / 534': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    'version 5.43.0 / 534': 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
 }
 for name, ok in checks.items(): print(('PASS' if ok else 'FAIL') + ': ' + name)
 assert all(checks.values())

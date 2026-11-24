@@ -53,3 +53,10 @@ A successful source-level regression suite is not the same as a successful Andro
 - Development 55: full customer detail screen with separate SALE and RECEIPT tabs, customer-specific totals, and preselected party in new sale/receipt forms.
 - No database migration in this release.
 - Run offline checks with `python3 tools/verify_all.py`.
+
+
+## Development 113 (5.58.0)
+
+- Main dashboard refreshed to the approved BFP card-based visual direction, with navy brand header, live sales/purchase/cash/outstanding figures, receivables/payables and quick actions.
+- No database schema migration. Billing workflows and accounting repositories retained.
+- See `DEVELOPMENT-113-DASHBOARD-UI-REDESIGN.md`.

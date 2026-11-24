@@ -14,7 +14,7 @@ checks = {
     'OCR never auto-saves purchase accounting': 'यह OCR अनुमान है। मूल बिल से मिलान अनिवार्य है.' in main and 'OCR is a review-only helper' in main,
     'user must explicitly add text to note': 'setNeutralButton("नोट में जोड़ें")' in main and 'noteField.setText' in main,
     'OCR preview does not call invoice repository': 'InvoiceRepository' not in main.split('private fun showOcrDraftDialog',1)[1].split('private fun resolvePurchaseAttachment',1)[0],
-    'app version advanced': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    'app version advanced': 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())
