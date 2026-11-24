@@ -2648,7 +2648,22 @@ class MainActivity : AppCompatActivity() {
                     savedSaleItemsPanel.addView(View(this@MainActivity).apply { setBackgroundColor(0xFFE0E5EA.toInt()) }, LinearLayout.LayoutParams(-1, dp(1)))
                 }
             }
-            listOf(draftCode, draftName, savedSaleItemsPanel, draftQty, draftRate, draftPurchaseGst, draftHsn).forEach { entryBox.addView(it) }
+            // DEV111: compact, separate Qty / Item Name / Rate row matching the approved billing layout.
+            val manualEntryRow = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            draftQty.hint = "Qty"
+            draftName.hint = "Item Name"
+            draftRate.hint = "Rate (₹)"
+            manualEntryRow.addView(draftQty, LinearLayout.LayoutParams(0, dp(52), 0.85f).apply { rightMargin = dp(6) })
+            manualEntryRow.addView(draftName, LinearLayout.LayoutParams(0, dp(52), 2.7f).apply { rightMargin = dp(6) })
+            manualEntryRow.addView(draftRate, LinearLayout.LayoutParams(0, dp(52), 1.15f))
+            entryBox.addView(manualEntryRow)
+            entryBox.addView(savedSaleItemsPanel)
+            entryBox.addView(draftCode)
+            entryBox.addView(draftPurchaseGst)
+            entryBox.addView(draftHsn)
             draftName.addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { refreshSavedSaleItemSuggestions(s?.toString().orEmpty()) }
@@ -2668,7 +2683,7 @@ class MainActivity : AppCompatActivity() {
                 val row = InvoiceLineViews(code, name, qty, rate, gst, hsn, itemId)
                 rows.add(row)
                 val summary = TextView(this@MainActivity).apply {
-                    textSize = 14f; setPadding(dp(10), dp(9), dp(10), dp(9)); setTextColor(0xFF263238.toInt()); background = rounded(0xFFF2F5F7.toInt(), 10)
+                    textSize = 14f; minLines = 2; setPadding(dp(12), dp(10), dp(12), dp(10)); setTextColor(0xFF263238.toInt()); background = rounded(0xFFF2F5F7.toInt(), 10)
                 }
                 row.summary = summary
                 fun refreshSummary() {
@@ -2676,7 +2691,7 @@ class MainActivity : AppCompatActivity() {
                     val q = row.quantity.text.toString()
                     val r = row.rate.text.toString().toDoubleOrNull() ?: 0.0
                     val quantity = q.toDoubleOrNull() ?: 0.0
-                    summary.text = "$index. ${row.name.text}  |  मात्रा: $q  |  रेट: ₹${"%.2f".format(r)}  |  कुल: ₹${"%.2f".format(quantity * r)}" + if (kind == "PURCHASE") "  |  GST: ${row.gst.text}%" else ""
+                    summary.text = "$index. ${row.name.text}\nमात्रा (Qty): $q     रेट (Rate): ₹${"%.2f".format(r)}\nकुल (Amount): ₹${"%.2f".format(quantity * r)}" + if (kind == "PURCHASE") "     GST: ${row.gst.text}%" else ""
                 }
                 refreshSummary()
                 val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
@@ -2717,7 +2732,7 @@ class MainActivity : AppCompatActivity() {
                     target.code.setText(draftCode.text); target.name.setText(n); target.quantity.setText(q.toString()); target.rate.setText(r.toString()); target.gst.setText(itemGst.toString()); target.hsn.setText(draftHsn.text)
                     val summary = target.summary
                     val index = rows.indexOf(target) + 1
-                    summary?.text = "$index. $n  |  मात्रा: ${q}  |  रेट: ₹${"%.2f".format(r)}  |  कुल: ₹${"%.2f".format(q * r)}" + if (kind == "PURCHASE") "  |  GST: $itemGst%" else ""
+                    summary?.text = "$index. $n\nमात्रा (Qty): ${q}     रेट (Rate): ₹${"%.2f".format(r)}\nकुल (Amount): ₹${"%.2f".format(q * r)}" + if (kind == "PURCHASE") "     GST: $itemGst%" else ""
                     editingRow = null; addButton?.text = "+ आइटम जोड़ें"
                     toast("आइटम अपडेट हो गई")
                 } else addLine(n, q.toString(), paise, itemGst, draftHsn.text.toString().trim(), draftCode.text.toString().trim())
@@ -2752,7 +2767,7 @@ class MainActivity : AppCompatActivity() {
                 parsed.third?.let { draftRate.setText(it) }
                 if (parsed.third != null) {
                     val added = commitDraftLine()
-                    if (added) { voiceStatus?.text = "${rows.size} आइटम जुड़ीं — अगली बोलें"; toast("${rows.size}वीं आइटम जुड़ गई") }
+                    if (added) { voiceStatus?.text = "${rows.size} आइटम जुड़ीं — अगली बोलें"; toast("जुड़ गया: ${parsed.first} | मात्रा ${parsed.second ?: "1"} | रेट ₹${parsed.third}") }
                 } else { voiceStatus?.text = "रेट समझ नहीं आया — रेट भरकर जोड़ें"; toast("रेट जाँचकर आइटम जोड़ें") }
             }
             fun stopContinuousVoice() {
@@ -2828,7 +2843,8 @@ class MainActivity : AppCompatActivity() {
             else existingLines.forEach { line -> addLine(line.itemNameSnapshot, line.quantity.toString(), line.ratePaise, line.gstRatePercent, line.hsnCode, line.itemCodeSnapshot, line.itemId) }
             val discount = editField("छूट (₹)", (existing?.discountPaise?.div(100.0) ?: 0.0).toString())
             val invoiceGst = editField("फाइनल बिल पर GST दर % (पूरे बिल पर)", (existingLines.firstOrNull()?.gstRatePercent ?: 5.0).toString())
-            invoiceGst.visibility = if (kind == "SALE") View.VISIBLE else View.GONE
+            var saleGstEnabled = kind != "SALE" || existing == null || existingLines.any { it.gstRatePercent > 0.0 }
+            invoiceGst.visibility = if (kind == "SALE" && saleGstEnabled) View.VISIBLE else View.GONE
             val taxInfo = TextView(this@MainActivity).apply {
                 text = if (kind == "SALE") "GST अलग-अलग सूट पर नहीं; फाइनल बिल की कुल टैक्सेबल रकम पर एक ही दर से लगेगा।" else "हर Purchase आइटम का GST सप्लायर के बिल के अनुसार अलग-अलग दर्ज करें।"
                 setTextColor(0xFF245A78.toInt()); setPadding(0, dp(6), 0, dp(6))
@@ -2852,10 +2868,46 @@ class MainActivity : AppCompatActivity() {
             if (kind == "PURCHASE") { box.addView(TextView(this@MainActivity).apply { text = "पार्टी चुनें" }); party?.let { box.addView(it) } }
             box.addView(stateLabel); box.addView(stateSpinner)
             box.addView(entryBox); box.addView(lookup); box.addView(scan)
-            val add = Button(this@MainActivity).apply { text = "+ आइटम जोड़ें"; setOnClickListener { commitDraftLine() } }
+            val itemActions = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val add = Button(this@MainActivity).apply {
+                text = "Save Item"; isAllCaps = false
+                setOnClickListener { commitDraftLine() }
+            }
             addButton = add
-            box.addView(add); box.addView(listHeader); box.addView(linesBox)
-            box.addView(discount); box.addView(invoiceGst); box.addView(taxInfo); box.addView(note)
+            val saveAndNew = Button(this@MainActivity).apply {
+                text = "Save & New"; isAllCaps = false
+                setOnClickListener { if (commitDraftLine()) { draftName.requestFocus(); toast("अगला आइटम दर्ज करें") } }
+            }
+            itemActions.addView(add, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
+            itemActions.addView(saveAndNew, LinearLayout.LayoutParams(0, dp(48), 1f))
+            box.addView(itemActions)
+            box.addView(listHeader); box.addView(linesBox)
+            box.addView(discount)
+            if (kind == "SALE") {
+                val gstToggle = CheckBox(this@MainActivity).apply {
+                    text = "GST लगाएँ (5% / दर बदल सकते हैं)"
+                    textSize = 15f
+                    isChecked = existing == null || existingLines.any { it.gstRatePercent > 0.0 }
+                    setPadding(dp(4), dp(8), dp(4), dp(8))
+                }
+                invoiceGst.setText(if (existingLines.firstOrNull()?.gstRatePercent?.let { it > 0.0 } == true) existingLines.first().gstRatePercent.toString() else "5")
+                invoiceGst.visibility = if (gstToggle.isChecked) View.VISIBLE else View.GONE
+                gstToggle.isChecked = saleGstEnabled
+                gstToggle.setOnCheckedChangeListener { _, checked ->
+                    saleGstEnabled = checked
+                    invoiceGst.visibility = if (checked) View.VISIBLE else View.GONE
+                    taxInfo.text = if (checked) "GST चुना गया है — फाइनल बिल पर निर्धारित दर लागू होगी।" else "बिना GST बिल — GST शून्य रहेगा।"
+                }
+                box.addView(gstToggle)
+                box.addView(invoiceGst)
+                box.addView(taxInfo)
+            } else {
+                box.addView(invoiceGst); box.addView(taxInfo)
+            }
+            box.addView(note)
             if (kind == "PURCHASE") {
                 purchaseAttachmentStatusView = attachmentStatus
                 val attachmentButton = Button(this@MainActivity).apply {
@@ -2940,6 +2992,25 @@ class MainActivity : AppCompatActivity() {
             val root = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundColor(0xFFF7F9FC.toInt())
+                val brandBar = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(16), dp(13), dp(16), dp(13))
+                    setBackgroundColor(0xFF102B4E.toInt())
+                }
+                brandBar.addView(TextView(this@MainActivity).apply {
+                    text = "BFP Business Pro"
+                    textSize = 20f
+                    setTextColor(0xFFFFFFFF.toInt())
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                brandBar.addView(TextView(this@MainActivity).apply {
+                    text = "BILLING"
+                    textSize = 12f
+                    setTextColor(0xFFFFFFFF.toInt())
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                })
+                addView(brandBar, LinearLayout.LayoutParams(-1, -2))
                 addView(customerHeader, LinearLayout.LayoutParams(-1, -2))
                 addView(bodyScroll, LinearLayout.LayoutParams(-1, 0, 1f))
             }
@@ -2974,12 +3045,12 @@ class MainActivity : AppCompatActivity() {
                     val itemName = row.name.text.toString().trim()
                     val quantity = row.quantity.text.toString().toDoubleOrNull()
                     val rateValue = row.rate.text.toString().toDoubleOrNull()
-                    val gstValue = if (kind == "PURCHASE") row.gst.text.toString().toDoubleOrNull() else invoiceGst.text.toString().toDoubleOrNull()
+                    val gstValue = if (kind == "PURCHASE") row.gst.text.toString().toDoubleOrNull() else if (saleGstEnabled) invoiceGst.text.toString().toDoubleOrNull() else 0.0
                     if (itemName.isBlank() || quantity == null || rateValue == null || gstValue == null || gstValue !in 0.0..100.0) null else
                         InvoiceRepository.LineInput(itemName, quantity, kotlin.math.round(rateValue * 100).toLong(), gstValue, row.hsn.text.toString().trim(), row.itemId, row.code.text.toString().trim())
                 }
                 val d = discount.text.toString().toDoubleOrNull()
-                val saleGstValid = kind != "SALE" || (invoiceGst.text.toString().toDoubleOrNull()?.let { it in 0.0..100.0 } ?: false)
+                val saleGstValid = kind != "SALE" || !saleGstEnabled || (invoiceGst.text.toString().toDoubleOrNull()?.let { it in 0.0..100.0 } ?: false)
                 if (number.text.isNullOrBlank() || lineInputs.size != rows.size || lineInputs.isEmpty() || d == null || d < 0 || !saleGstValid) { toast("हर आइटम का नाम, मात्रा, रेट और छूट सही भरें; बिक्री में फाइनल GST दर भी जाँचें"); return@setOnClickListener }
                 val selectedParty = if (kind == "SALE") parties.firstOrNull { it.id == selectedPartyId } else parties.getOrNull(party!!.selectedItemPosition)
                 if (selectedParty == null) { toast("पहले ग्राहक चुनें या नया ग्राहक जोड़ें"); return@setOnClickListener }
@@ -3007,7 +3078,7 @@ class MainActivity : AppCompatActivity() {
                     append(previewLines.joinToString("\n"))
                     append("\n\nआइटम कुल: ₹${"%.2f".format(subtotalRupees)}")
                     append("\nछूट: ₹${"%.2f".format(d)}")
-                    append("\nGST दर: ${if (kind == "SALE") invoiceGst.text else "प्रत्येक खरीद आइटम के अनुसार"}%")
+                    append("\nGST: ${if (kind == "SALE") { if (saleGstEnabled) "${invoiceGst.text}%" else "बिना GST" } else "प्रत्येक खरीद आइटम के अनुसार"}")
                     append("\n\nकृपया सभी आइटम, मात्रा और रेट जाँच लें। अभी बिल सेव नहीं हुआ है।")
                 }
                 AlertDialog.Builder(this@MainActivity)
@@ -3214,16 +3285,9 @@ class MainActivity : AppCompatActivity() {
         catch (_: Exception) { pendingVoiceInput = null; pendingVoiceHandler = null; continuousVoiceEntry = false; toast("इस फोन में Voice Input उपलब्ध नहीं है") }
     }
 
-    /**
-     * Parses spoken billing input in either order:
-     * "5 suit 500", "five suit five hundred", "suit 5 rate 500",
-     * and "पाँच सूट पाँच सौ रुपये".
-     * The first number group is quantity and the last number group is rate.
-     */
+    /** Splits a spoken item phrase into an item name and an optional trailing price. */
     private fun parseVoiceItemPhrase(raw: String): Triple<String, String?, String?> {
-        val originalTokens = raw.replace(Regex("[^\\p{L}\\p{N}.]+"), " ")
-            .trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-        if (originalTokens.isEmpty()) return Triple("", null, null)
+        val originalTokens = raw.replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
         val tokens = originalTokens.map { it.lowercase(java.util.Locale.ROOT) }
         val small = mapOf(
             "zero" to 0L, "oh" to 0L, "one" to 1L, "two" to 2L, "three" to 3L, "four" to 4L, "five" to 5L, "six" to 6L, "seven" to 7L, "eight" to 8L, "nine" to 9L,
@@ -3233,11 +3297,9 @@ class MainActivity : AppCompatActivity() {
         )
         val tens = mapOf("twenty" to 20L, "thirty" to 30L, "forty" to 40L, "fifty" to 50L, "sixty" to 60L, "seventy" to 70L, "eighty" to 80L, "ninety" to 90L)
         val currency = setOf("rupee", "rupees", "rs", "inr", "रुपया", "रुपये", "रुपए", "रूपये", "रूपए", "रु")
-        val labels = setOf("quantity", "qty", "रेट", "rate", "price", "कीमत", "मूल्य", "pcs", "pc", "piece", "pieces", "item")
         fun numeric(token: String): Boolean = token.toLongOrNull() != null || token.toDoubleOrNull() != null || token in small || token in tens || token in setOf("hundred", "हंड्रेड", "सौ", "thousand", "हजार", "हज़ार", "लाख")
         fun parseNumber(words: List<String>): Double? {
-            var total = 0.0
-            var current = 0.0
+            var total = 0.0; var current = 0.0
             for (t in words.filterNot { it in currency || it == "and" || it == "और" }) {
                 val digit = t.toDoubleOrNull()
                 when {
@@ -3251,47 +3313,17 @@ class MainActivity : AppCompatActivity() {
             }
             return (total + current).takeIf { it > 0.0 && it <= 100000000.0 }
         }
-
-        // Ignore spoken field labels/currency words while retaining each token's source position.
-        val useful = tokens.indices.filter { tokens[it] !in labels && tokens[it] !in currency && tokens[it] !in setOf("and", "और") }
-        val groups = mutableListOf<List<Int>>()
-        var currentGroup = mutableListOf<Int>()
-        for (index in useful) {
-            if (numeric(tokens[index])) {
-                if (currentGroup.isNotEmpty() && index != currentGroup.last() + 1) {
-                    groups.add(currentGroup.toList())
-                    currentGroup = mutableListOf()
-                }
-                currentGroup.add(index)
-            } else if (currentGroup.isNotEmpty()) {
-                groups.add(currentGroup.toList())
-                currentGroup = mutableListOf()
-            }
-        }
-        if (currentGroup.isNotEmpty()) groups.add(currentGroup.toList())
-
-        val quantityGroup = when {
-            groups.size >= 2 -> groups.first()
-            groups.size == 1 && groups.first().first() == 0 -> groups.first()
-            else -> null
-        }
-        val rateGroup = when {
-            groups.size >= 2 -> groups.last()
-            groups.size == 1 && groups.first().first() != 0 -> groups.first()
-            else -> null
-        }
-        val quantity = quantityGroup?.let { parseNumber(it.map(tokens::get)) }
-        val rate = rateGroup?.let { parseNumber(it.map(tokens::get)) }
-        val excluded = (quantityGroup.orEmpty() + rateGroup.orEmpty()).toSet()
-        val item = originalTokens.indices
-            .filter { it !in excluded && tokens[it] !in labels && tokens[it] !in currency && tokens[it] !in setOf("and", "और") }
-            .map { originalTokens[it] }
-            .joinToString(" ").trim()
-        return Triple(
-            item.ifBlank { raw.trim() },
-            quantity?.toString()?.removeSuffix(".0"),
-            rate?.let { String.format(java.util.Locale.US, "%.2f", it).trimEnd('0').trimEnd('.') }
-        )
+        var qEnd = 0
+        while (qEnd < tokens.size && numeric(tokens[qEnd])) qEnd++
+        val quantity = if (qEnd > 0) parseNumber(tokens.subList(0, qEnd)) else null
+        var rateStart = tokens.size
+        var i = tokens.lastIndex
+        while (i >= qEnd && (numeric(tokens[i]) || tokens[i] in currency || tokens[i] == "and" || tokens[i] == "और")) { rateStart = i; i-- }
+        val rateWords = if (rateStart < tokens.size) tokens.subList(rateStart, tokens.size) else emptyList()
+        val rate = parseNumber(rateWords)
+        val itemEnd = if (rate != null) rateStart else tokens.size
+        val item = originalTokens.drop(qEnd).take((itemEnd - qEnd).coerceAtLeast(0)).joinToString(" ").trim()
+        return Triple(item.ifBlank { raw.trim() }, quantity?.toString()?.removeSuffix(".0"), rate?.let { String.format(java.util.Locale.US, "%.2f", it).trimEnd('0').trimEnd('.') })
     }
 
     private fun editField(hintText: String, value: String): EditText = EditText(this).apply { hint = hintText; setText(value); setSingleLine(true) }
