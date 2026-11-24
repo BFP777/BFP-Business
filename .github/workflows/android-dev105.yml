@@ -84,7 +84,7 @@ jobs:
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n 1)
           test -n "$BUILD_TOOLS"
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='in.bhajan.bfpbusinesspro' versionCode='557' versionName='5.57.0'"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='in.bhajan.bfpbusinesspro' versionCode='561' versionName='5.61.0'"
           echo "DEV112 signed APK signature and version verified."
 
       - name: Upload DEV112 signed APK
