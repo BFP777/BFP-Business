@@ -29,9 +29,9 @@ jobs:
           set -euo pipefail
           test -f settings.gradle.kts
           test -f app/build.gradle.kts       
-          grep -q 'versionCode = 557' app/build.gradle.kts
-          grep -q 'versionName = "5.57.0"' app/build.gradle.kts
-          echo "DEV111 root Android project verified."
+          grep -q 'versionCode = 561' app/build.gradle.kts
+          grep -q 'versionName = "5.61.0"' app/build.gradle.kts
+          echo "DEV117 root Android project verified."
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
