@@ -16,7 +16,7 @@ checks = {
     'Scanner module metadata': 'android:value="barcode_ui"' in manifest,
     'No direct camera permission': 'android.permission.CAMERA' not in manifest,
     'No Room migration/schema bump': 'Room schema: 9 (no database migration required)' in notes,
-    'Version 5.14.0': 'versionName = "5.59.0"' in gradle and 'versionCode = 559' in gradle,
+    'Version 5.14.0': 'versionName = "5.61.0"' in gradle and 'versionCode = 561' in gradle,
 }
 for name, ok in checks.items():
     print(f'{name}: {"PASS" if ok else "FAIL"}')

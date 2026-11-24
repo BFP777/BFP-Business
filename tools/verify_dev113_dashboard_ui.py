@@ -8,7 +8,7 @@ checks = {
     "quick action destinations": all(x in main for x in ["NEW SALE", "PAYMENT IN", "PAYMENT OUT", "EXPENSE", "BANK"]),
     "quick shortcuts": all(x in main for x in ["PARTIES", "STOCK / ITEMS", "DAY BOOK", "REPORTS"]),
     "navy BFP brand header": 'setBackgroundColor(0xFF071F55.toInt())' in main and 'BFP Business Pro' in main,
-    "version 5.59.0 / 559": 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
+    "version 5.61.0 / 559": 'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

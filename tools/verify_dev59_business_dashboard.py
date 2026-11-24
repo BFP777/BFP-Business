@@ -15,7 +15,7 @@ checks = {
  'bilingual dashboard screen and estimate caveat visible': 'BUSINESS DASHBOARD / बिजनेस डैशबोर्ड' in main and 'प्राप्तियाँ बिक्री से अलग हैं' in main,
  'receivables and payables retain green and red colors': '0xFF168447' in main and '0xFFC93636' in main,
  'dashboard is read-only and navigates to existing modules': 'observeBusinessDashboard(startMillis, endMillis).first()' in main and 'showPayments("IN")' in main and 'showExpenses()' in main,
- 'app version advanced without Room schema change': 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle and 'version = 10' in (ROOT/'app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt').read_text(),
+ 'app version advanced without Room schema change': 'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle and 'version = 10' in (ROOT/'app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt').read_text(),
 }
 # Extract Kotlin compile-time string fragments from the @Query annotation and execute its exact SQL.
 m = re.search(r'@Query\((.*?)\)\s*fun observeBusinessDashboard', dao, re.S)

@@ -18,7 +18,7 @@ checks = {
     "dead stock requires positive quantity and no sale in 90 days": "it.item.quantity > 0.0 && (it.lastSaleEpochMillis == 0L || it.lastSaleEpochMillis < cutoff)" in main,
     "estimate caveat is visible": "इसमें छूट, टैक्स, दुकान का खर्च और पुराने बैच की वास्तविक लागत शामिल नहीं है" in main,
     "screen is read-only and uses DAO Flow": "observeItemPerformance(cutoff).collectLatest" in main,
-    "Room schema unchanged": "version = 10" in db and "versionCode = 559" in gradle and 'versionName = "5.59.0"' in gradle,
+    "Room schema unchanged": "version = 10" in db and "versionCode = 561" in gradle and 'versionName = "5.61.0"' in gradle,
 }
 
 # Execute the exact SQL declared in the DAO against a small realistic fixture.

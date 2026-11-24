@@ -9,7 +9,7 @@ checks = {
     "spoken quantity is applied, defaulting to one": 'val voiceQuantity = parsed.second ?: "1"' in source and 'draftQty.setText(voiceQuantity)' in source,
     "rate is sufficient for voice auto-add": "if (parsed.third != null)" in source,
     "continuous voice resumes after successful add": "if (added && continuousVoiceEntry)" in source and "startNextVoiceEntry?.invoke()" in source,
-    "release version is 5.52.0 / 552": 'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
+    "release version is 5.52.0 / 552": 'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle,
 }
 for label, ok in checks.items():
     print(("PASS" if ok else "FAIL") + ": " + label)

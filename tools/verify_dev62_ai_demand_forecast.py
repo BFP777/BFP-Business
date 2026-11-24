@@ -16,7 +16,7 @@ checks={
 "reorder suggestion considers minimum stock and current stock":"minimumStockQuantity" in main and "projected + safetyBuffer - row.item.quantity" in main,
 "screen warns forecast is not guaranteed and no auto purchase":"गारंटी" in main and "कोई स्टॉक/खरीद एंट्री अपने-आप नहीं बनेगी" in main,
 "database schema remains version 9":"version = 10" in db,
-"app version advanced to 5.17.0 / 517":'versionCode = 559' in gradle and 'versionName = "5.59.0"' in gradle,
+"app version advanced to 5.17.0 / 517":'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle,
 }
 for k,v in checks.items():print(("PASS" if v else "FAIL")+": "+k)
 assert all(checks.values()),"Dev62 checks failed"
