@@ -4,8 +4,8 @@ s = p.read_text()
 checks = {
     'Expense has its own screen': 'private fun showExpenses()' in s,
     'Bank has its own screen': 'private fun showBankManagement()' in s,
-    'Menu routes Expenses separately': 'menuEntry("Expenses / खर्च") { showExpenses() }' in s,
-    'Menu routes Bank separately': 'menuEntry("Bank / बैंक") { showBankManagement() }' in s,
+    'Menu routes Expenses separately': '"Expenses / खर्च" to { showExpenses() }' in s,
+    'Menu routes Bank separately': '"Bank / बैंक" to { showBankManagement() }' in s,
     'Expense screen only lists EXPENSE rows': 'filter { it.entryType == "EXPENSE" }' in s,
     'Bank screen excludes EXPENSE rows': 'filter { it.entryType != "EXPENSE" }' in s,
     'Expense add button opens expense form': 'cashEntryDialog("EXPENSE")' in s,

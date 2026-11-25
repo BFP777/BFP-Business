@@ -11,7 +11,7 @@ checks = {
     "supplier-wise potential ITC query": "getSupplierItcReport(startEpochMillis: Long, endEpochMillis: Long)" in dao and "GROUP BY p.id,p.name,p.gstNumber" in dao,
     "sales and purchase kinds remain separated": "i.kind='SALE'" in dao and "i.kind='PURCHASE'" in dao,
     "UI labels ITC as potential and warns no GSTR-2B matching": "संभावित ITC" in ui and "GSTR-2B/सरकारी पोर्टल से मिलान नहीं करता" in ui,
-    "version 5.43.0 / 535": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    "version 5.43.0 / 535": 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
 }
 for label, ok in checks.items():
     print(("PASS" if ok else "FAIL") + ": " + label)

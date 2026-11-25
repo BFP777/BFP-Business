@@ -11,7 +11,7 @@ checks = {
     "report shows item code and all movement categories": all(x in main for x in ["showStockReport()", "row.item.itemCode", "Opening", "Purchase", "Sale", "Adjustment", "Closing"]),
     "report includes aggregate totals and edit/reversal note": "TOTAL — Opening" in main and "Edit और Reversal" in main or "Edit और Reversal movement भी शामिल हैं" in main,
     "stock report is reachable from item master": '"स्टॉक रिपोर्ट / Stock Report"' in main,
-    "version 5.31.0 / 531": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    "version 5.31.0 / 531": 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

@@ -4,8 +4,8 @@ import androidx.room.withTransaction
 
 /**
  * Invoice posting with atomic inventory updates for Item Master-linked lines.
- * Item-master-linked purchase lines update stock. Purchase amount-only lines
- * use itemId=0 and remain supplier-ledger entries without inventory movement.
+ * Purchase lines must reference a stock item so received quantities cannot be
+ * silently omitted from inventory; sales may still contain free-text service lines.
  */
 class InvoiceRepository(private val database: BfpDatabase) {
     private val dao = database.dao()
@@ -177,10 +177,10 @@ class InvoiceRepository(private val database: BfpDatabase) {
         require(GstCalculator.validState(input.sellerStateCode) && GstCalculator.validState(input.buyerStateCode)) { "राज्य कोड सही दर्ज करें" }
         input.lines.forEach {
             require(it.itemId >= 0) { "आइटम चयन गलत है" }
-            // Purchase may be a Simple Purchase amount-only ledger entry. Such a
-            // line has itemId=0 and is deliberately excluded from inventory posting.
-            if (input.kind == "PURCHASE" && it.itemId > 0) {
-                require(it.itemCode.isNotBlank()) { "स्टॉक खरीद के लिए Item Master से आइटम चुनें" }
+            if (input.kind == "PURCHASE") {
+                require(it.itemId > 0 && it.itemCode.isNotBlank()) {
+                    "खरीद में स्टॉक जोड़ने के लिए Item Master से Item Code द्वारा आइटम चुनें"
+                }
             }
             require(it.itemCode.isBlank() || it.itemId > 0) { "Item Code से आइटम खोजकर चुनें" }
             if (it.itemId > 0) {

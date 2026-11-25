@@ -3,8 +3,8 @@ root = Path(__file__).resolve().parents[1]
 repo = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/data/InvoiceRepository.kt').read_text()
 main = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt').read_text()
 checks = {
-    'item-wise purchase requires Item Master item while amount-only purchase may use itemId=0': 'if (input.kind == "PURCHASE" && it.itemId > 0)' in repo and 'itemId=0' in repo,
-    'item-wise stock purchase requires a matching Item Code': 'स्टॉक खरीद के लिए Item Master से आइटम चुनें' in repo,
+    'purchase lines must select a real Item Master item': 'if (input.kind == "PURCHASE")' in repo and 'require(it.itemId > 0 && it.itemCode.isNotBlank())' in repo,
+    'purchase validation explains how to link stock item': 'खरीद में स्टॉक जोड़ने के लिए Item Master से Item Code द्वारा आइटम चुनें' in repo,
     'item code must resolve to the selected item': 'item.itemCode.equals(it.itemCode.trim(), true)' in repo,
     'stock posting remains atomic with invoice transaction': 'database.withTransaction' in repo and 'validateAndPostStock(input, emptyList())' in repo,
     'purchase item GST remains per supplier bill line': 'input.lines.map { GstLineInput(it.quantity, it.ratePaise, it.gstRatePercent) }' in repo,

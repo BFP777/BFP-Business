@@ -5,7 +5,7 @@ backup = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/DatabaseBack
 main = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt').read_text()
 db = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt').read_text()
 checks = {
-    'version 5.46.0 / 546': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    'version 5.46.0 / 546': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
     'Room schema remains 10': 'version = 10' in db,
     'restore rejects ZIP without manifest': 'require(manifestFile.isFile)' in backup and 'ZIP बैकअप अस्वीकार किया गया' in backup,
     'preview and restore compare exact manifest/archive file sets': backup.count('manifestNames ==') >= 1 and 'manifestNames == extractedFiles' in backup and 'manifestNames == archiveFiles' in backup,

@@ -7,15 +7,12 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = [
     "tools/verify_dev39_ui_bank.py",
-    "tools/verify_dev113_dashboard_ui.py",
-    "tools/verify_dev114_side_menu.py",
     "tools/verify_dev40_bank_linking.py",
     "tools/verify_dev41_bank_balances.py",
     "tools/verify_dev42_daybook_bank_names.py",
     "tools/verify_dev43_separate_expense_bank.py",
     "tools/verify_dev44_inventory.py",
     "tools/verify_dev45_purchase_attachments.py",
-    "tools/verify_dev119_purchase_camera.py",
     "tools/verify_dev46_employee_payroll.py",
     "tools/verify_dev47_smart_stock.py",
     "tools/verify_dev48_supplier_bill_ocr.py",
@@ -26,7 +23,7 @@ SCRIPTS = [
     "tools/verify_dev53_customer_intelligence.py",
     "tools/verify_dev54_customer_relationship.py",
     "tools/verify_dev55_customer_tabs.py",
-    # Legacy bilingual navigation assertion conflicts with the approved English-only UI.
+    "tools/verify_dev56_bilingual_and_colors.py",
     "tools/verify_dev57_voice_scanner.py",
     "tools/verify_dev58_profit_deadstock.py",
     "tools/verify_dev59_business_dashboard.py",
@@ -118,6 +115,3 @@ subprocess.run([sys.executable, str(ROOT / "tools/verify_dev104_backup_encryptio
 
 # Dev105 dashboard outstanding summary cards
 subprocess.run([sys.executable, str(ROOT / "tools/verify_dev105_dashboard_outstanding.py")], cwd=ROOT, check=True)
-
-# DEV121 separate Debtors/Creditors and amount-only purchase without stock movement
-subprocess.run([sys.executable, str(ROOT / "tools/verify_dev121_parties_simple_purchase.py")], cwd=ROOT, check=True)

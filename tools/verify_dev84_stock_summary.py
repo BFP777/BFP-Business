@@ -10,7 +10,7 @@ checks = {
     'stock valuation uses purchase rates and is labelled estimate': 'it.quantity * it.purchaseRatePaise.toDouble()' in main and 'मूल्य अनुमानित है' in main,
     'invoice edit reverses and reposts stock atomically': 'validateAndPostStock(replacement, oldLinesForStock)' in repo and 'database.withTransaction' in repo,
     'invoice delete reverses stock atomically': 'reverseStock(invoice.kind, lines, invoice.invoiceNumber, invoice.dateEpochMillis)' in repo and 'database.withTransaction' in repo,
-    'version is 5.31.0 / 529': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    'version is 5.31.0 / 529': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

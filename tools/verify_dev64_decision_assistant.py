@@ -16,7 +16,7 @@ checks = {
     'supplier rate comparison matches same supplier and item': 'priorInvoice.partyId = i.partyId' in dao and 'prior.itemId = il.itemId' in dao and 'newer.itemId = il.itemId' in dao,
     'no automatic posting disclosed': 'कोई खरीद, बिक्री, भुगतान, स्टॉक या अकाउंटिंग एंट्री अपने-आप नहीं बनेगी' in main,
     'no data case disclosed': 'डेटा अभी कम है / More data needed' in main,
-    'version 5.23.0 code 522': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    'version 5.23.0 code 522': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
 }
 for name, ok in checks.items():
     print(('PASS' if ok else 'FAIL') + ': ' + name)
