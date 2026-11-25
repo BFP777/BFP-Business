@@ -1082,28 +1082,52 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showPartyLedger(party: PartyEntity) {
-        val page = base("Party Details")
-        val profile = sectionCard(party.name)
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(TextView(this).apply {
-            text = if (party.mobile.isBlank()) "Add Phone" else party.mobile
-            textSize = 15f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFF0879C9.toInt()); setOnClickListener { partyDialog(party) }
+    private fun partyDetailsBase(party: PartyEntity): LinearLayout {
+        val shell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(0xFFE4F3FF.toInt()) }
+        val toolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(10), dp(14), dp(10)); setBackgroundColor(0xFFFFFFFF.toInt()); elevation = dp(2).toFloat()
+        }
+        toolbar.addView(headerIcon("‹") { showParties() })
+        toolbar.addView(TextView(this).apply {
+            text = "Party Details"; textSize = 22f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(0xFF303648.toInt())
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(headerIcon("✎") { partyDialog(party) })
-        top.addView(headerIcon("⋮") {
+        toolbar.addView(headerIcon("✎") { partyDialog(party) })
+        toolbar.addView(headerIcon("⋮") {
             AlertDialog.Builder(this).setItems(arrayOf("Edit Party", "Delete Party")) { _, which ->
                 if (which == 0) partyDialog(party) else confirmDeleteParty(party)
             }.show()
         })
-        profile.addView(top)
-        val balanceLabel = TextView(this).apply {
-            text = "Balance: calculating…"; textSize = 17f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF303648.toInt())
-            setPadding(0, dp(10), 0, dp(4))
+        shell.addView(toolbar)
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(14), dp(14), dp(18))
+            setBackgroundColor(0xFFE4F3FF.toInt())
         }
-        profile.addView(balanceLabel)
+        shell.addView(ScrollView(this).apply { isFillViewport = true; addView(root) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        setContentView(shell)
+        return root
+    }
+
+    private fun showPartyLedger(party: PartyEntity) {
+        val page = partyDetailsBase(party)
+        val profile = sectionCard("")
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        top.addView(TextView(this).apply {
+            text = if (party.partyType == "SUPPLIER") "Purchase Account" else "Cash Sale"
+            textSize = 15f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF303648.toInt())
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        val balanceLabel = TextView(this).apply {
+            text = "Balance Clear: ₹0.00"; textSize = 15f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF303648.toInt())
+        }
+        top.addView(balanceLabel)
+        profile.addView(top)
+        profile.addView(TextView(this).apply {
+            text = if (party.mobile.isBlank()) "Add Phone" else party.mobile
+            textSize = 15f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(0xFF0879C9.toInt()); setPadding(0, dp(5), 0, dp(2)); setOnClickListener { partyDialog(party) }
+        })
         val creditLimitPrefs = getSharedPreferences("bfp_party_credit_limits", MODE_PRIVATE)
         val creditLimitLabel = TextView(this).apply {
             textSize = 13f; setTextColor(0xFF0879C9.toInt())
@@ -1163,7 +1187,17 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        profile.addView(statement)
+        val communication = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        communication.addView(Button(this).apply {
+            text = "Send Reminder"; isAllCaps = false; textSize = 12f
+            setOnClickListener {
+                val message = "Hello ${party.name}, this is a payment reminder from BHAJAN FASHION POINT. Please check your account statement."
+                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, message) }
+                startActivity(Intent.createChooser(send, "Send Reminder"))
+            }
+        }, LinearLayout.LayoutParams(0, dp(44), 1f))
+        communication.addView(statement, LinearLayout.LayoutParams(0, dp(44), 1f))
+        profile.addView(communication)
         page.addView(profile)
 
         val search = EditText(this).apply {
@@ -1260,7 +1294,7 @@ class MainActivity : AppCompatActivity() {
                         .filter { it.partyId == party.id }
                 }
                 val closing = ledgerRows.lastOrNull()?.balancePaise ?: 0L
-                balanceLabel.text = "Balance: ₹${kotlin.math.abs(closing) / 100.0}  " + when {
+                balanceLabel.text = (if (closing == 0L) "Balance Clear: " else "Balance: ") + "₹${kotlin.math.abs(closing) / 100.0}  " + when {
                     closing == 0L -> "Clear"
                     closing > 0L -> if (supplier) "Advance / Credit" else "Due from Customer"
                     else -> if (supplier) "Payable to Supplier" else "Advance Received"
