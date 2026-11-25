@@ -118,3 +118,6 @@ subprocess.run([sys.executable, str(ROOT / "tools/verify_dev104_backup_encryptio
 
 # Dev105 dashboard outstanding summary cards
 subprocess.run([sys.executable, str(ROOT / "tools/verify_dev105_dashboard_outstanding.py")], cwd=ROOT, check=True)
+
+# DEV121 separate Debtors/Creditors and amount-only purchase without stock movement
+subprocess.run([sys.executable, str(ROOT / "tools/verify_dev121_parties_simple_purchase.py")], cwd=ROOT, check=True)

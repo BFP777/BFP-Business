@@ -12,7 +12,7 @@ checks={
  'financial position includes liquid balances, stock, receivables and payables': all(x in repo for x in ['money.cashPaise','money.upiPaise','money.bankPaise','stockValue','balances.debtorsPaise','balances.creditorsPaise']),
  'UI labels statement as estimate and discloses limitations': 'not a certified statutory P&L or legal Balance Sheet' in main and 'historical batch costs' in main,
  'accessible from Reports': 'showFinancialStatement()' in main and 'Profit & Loss + Financial Position' in main,
- 'version 5.43.0 / 539': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
+ 'version 5.43.0 / 539': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
  'Room schema unchanged': 'version = 10' in db,
 }
 for k,v in checks.items(): print(('PASS' if v else 'FAIL')+': '+k)

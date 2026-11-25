@@ -6,9 +6,9 @@ checks = {
     "dashboard cards": all(x in main for x in ["TOTAL SALES", "TOTAL PURCHASE", "CASH BALANCE", "OUTSTANDING"]),
     "receivable/payable color cards": "DEBTORS  •  RECEIVABLE" in main and "CREDITORS  •  PAYABLE" in main,
     "quick action destinations": all(x in main for x in ["NEW SALE", "PAYMENT IN", "PAYMENT OUT", "EXPENSE", "BANK"]),
-    "quick shortcuts": all(x in main for x in ["PARTIES", "STOCK / ITEMS", "DAY BOOK", "REPORTS"]),
+    "quick shortcuts": all(x in main for x in ["STOCK / ITEMS", "DAY BOOK", "REPORTS"]) and "PARTIES" not in main[main.index("val shortcuts ="):main.index("val backup =")],
     "navy BFP brand header": 'setBackgroundColor(0xFF071F55.toInt())' in main and 'BFP Business Pro' in main,
-    "version 5.62.0 / 561": 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
+    "version 5.64.0 / 564": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

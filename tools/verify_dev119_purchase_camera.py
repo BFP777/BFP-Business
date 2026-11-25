@@ -11,7 +11,7 @@ checks = {
     'gallery and PDF picker retained': 'choosePurchaseAttachment.launch(arrayOf("image/*", "application/pdf"))' in main,
     'separate camera button visible in purchase form': '📷 कैमरे से फोटो लें' in main,
     'existing attachment open and OCR actions retained': 'openPurchaseAttachment(pendingPurchaseAttachmentPath)' in main and 'बिल से टेक्स्ट पढ़ें (OCR)' in main,
-    'version bumped': 'versionCode = 563' in gradle and 'versionName = "5.63.0"' in gradle,
+    'version bumped': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
 }
 for label, ok in checks.items():
     print(f"{'PASS' if ok else 'FAIL'}: {label}")

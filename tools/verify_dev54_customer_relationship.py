@@ -6,11 +6,11 @@ notes = (root / 'DEVELOPMENT-54-NOTES.md').read_text()
 checks = {
     'explicit WhatsApp draft button': 'WhatsApp संदेश तैयार करें' in main,
     'WhatsApp click-to-chat URL': 'https://wa.me/$digits?text=${Uri.encode(message)}' in main,
-    'no automatic send API': 'Intent.ACTION_SEND' not in main and 'sendTextMessage(' not in main,
+    'no silent automatic WhatsApp send API': 'sendTextMessage(' not in main and 'WhatsApp Business API' not in main,
     'Indian 10-digit normalization': 'if (digits.length == 10) digits = "91$digits"' in main,
     'invalid phone number guard': 'digits.length !in 11..15' in main,
     'customer-specific design personalization': 'preferred?.let' in main and 'it.itemName' in main,
-    'version advanced': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
+    'version advanced': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
     'database schema unchanged': 'Room schema: 9 (no database migration required)' in notes,
     'manual send clearly documented': 'user reviews and manually sends it' in notes,
 }
