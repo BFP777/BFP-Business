@@ -1167,7 +1167,7 @@ class MainActivity : AppCompatActivity() {
         page.addView(profile)
 
         val search = EditText(this).apply {
-            hint = "Search Transactions"; singleLine = true
+            hint = "Search Transactions"; setSingleLine(true)
             setPadding(dp(14), dp(8), dp(14), dp(8)); background = rounded(0xFFFFFFFF.toInt(), 12)
         }
         page.addView(search, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(10); bottomMargin = dp(8) })
