@@ -96,10 +96,42 @@ class MainActivity : AppCompatActivity() {
         if (uri != null) lifecycleScope.launch { try { withContext(Dispatchers.IO) { contentResolver.openOutputStream(uri)?.use { it.write(pendingReportBytes) } ?: error("फाइल नहीं खुली") }; toast("PDF रिपोर्ट सेव हो गई") } catch (e: Exception) { toast("Export असफल: ${e.message}") } }
     }
     private var pendingPurchaseAttachmentPath: String = ""
+    private var pendingCameraAttachmentFile: File? = null
     private var editingOriginalAttachmentPath: String = ""
     private var purchaseAttachmentStatusView: TextView? = null
     private var purchaseAttachmentButtonView: Button? = null
     private var purchaseAttachmentOpenButtonView: Button? = null
+    private val capturePurchaseBillPhoto = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val captured = pendingCameraAttachmentFile
+        pendingCameraAttachmentFile = null
+        if (success && captured != null && captured.isFile && captured.length() > 0L) {
+            val previous = pendingPurchaseAttachmentPath
+            pendingPurchaseAttachmentPath = captured.relativeTo(filesDir).invariantSeparatorsPath
+            purchaseAttachmentStatusView?.text = "कैमरे से फोटो अटैच: ${captured.name}"
+            purchaseAttachmentButtonView?.text = "दूसरी फोटो / PDF चुनें"
+            purchaseAttachmentOpenButtonView?.visibility = View.VISIBLE
+            if (previous.isNotBlank() && previous != editingOriginalAttachmentPath) {
+                lifecycleScope.launch(Dispatchers.IO) { resolvePurchaseAttachment(previous).delete() }
+            }
+            toast("सप्लायर बिल की फोटो सेव हो गई")
+        } else {
+            captured?.delete()
+            if (success) toast("फोटो सेव नहीं हो सकी")
+        }
+    }
+    private fun takePurchaseBillPhoto() {
+        try {
+            val directory = File(filesDir, "purchase_attachments").apply { if (!exists()) mkdirs() }
+            val photo = File(directory, "supplier-camera-${UUID.randomUUID()}.jpg")
+            pendingCameraAttachmentFile = photo
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", photo)
+            capturePurchaseBillPhoto.launch(uri)
+        } catch (e: Exception) {
+            pendingCameraAttachmentFile?.delete()
+            pendingCameraAttachmentFile = null
+            toast(e.message ?: "कैमरा शुरू नहीं हो सका")
+        }
+    }
     private val choosePurchaseAttachment = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) lifecycleScope.launch {
             try {
@@ -2414,15 +2446,95 @@ class MainActivity : AppCompatActivity() {
                     val row = card("बिल: ${invoice.invoiceNumber}\nपार्टी: $party\nतारीख: ${java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale("hi", "IN")).format(java.util.Date(invoice.dateEpochMillis))}\nकुल: ₹${invoice.totalPaise / 100.0}  |  भुगतान: ₹${invoice.paidPaise / 100.0}")
                     list.addView(row)
                     addAction(list, "${invoice.invoiceNumber} — Edit / Delete", 0xFF607D8B.toInt()) {
-                        AlertDialog.Builder(this@MainActivity).setItems(arrayOf("PDF / Print", "Edit", "Delete")) { _, which ->
+                        val actions = if (kind == "SALE") arrayOf("PDF / Print", "WhatsApp पर PDF भेजें", "Edit", "Delete") else arrayOf("PDF / Print", "Edit", "Delete")
+                        AlertDialog.Builder(this@MainActivity).setItems(actions) { _, which ->
                             if (which == 0) lifecycleScope.launch { printInvoice(invoice) }
-                            else if (which == 1) lifecycleScope.launch { val lines = withContext(Dispatchers.IO) { db.dao().getInvoiceLines(invoice.id) }; invoiceDialog(kind, invoice, lines) }
+                            else if (kind == "SALE" && which == 1) lifecycleScope.launch { shareInvoicePdf(invoice) }
+                            else if (which == if (kind == "SALE") 2 else 1) lifecycleScope.launch { val lines = withContext(Dispatchers.IO) { db.dao().getInvoiceLines(invoice.id) }; invoiceDialog(kind, invoice, lines) }
                             else AlertDialog.Builder(this@MainActivity).setMessage("यह बिल हट जाएगा। जुड़े भुगतान पहले हटाने होंगे।").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ -> lifecycleScope.launch(Dispatchers.IO) { try { InvoiceRepository(db).delete(invoice.id); if (invoice.attachmentPath.isNotBlank()) resolvePurchaseAttachment(invoice.attachmentPath).delete(); withContext(Dispatchers.Main) { toast("बिल हटाया गया") } } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल हटाया नहीं जा सका") } } } }.show()
                         }.show()
                     }
                 }
             }
         }
+    }
+
+    /** Creates a customer-facing PDF and opens WhatsApp with it attached. User must tap Send. */
+    private suspend fun shareInvoicePdf(invoice: InvoiceEntity) {
+        try {
+            require(invoice.kind == "SALE") { "WhatsApp ग्राहक कॉपी केवल बिक्री बिल के लिए उपलब्ध है" }
+            val details = withContext(Dispatchers.IO) {
+                val party = db.dao().observeParties().first().firstOrNull { it.id == invoice.partyId } ?: error("ग्राहक नहीं मिला")
+                Triple(party, db.dao().getInvoiceLines(invoice.id), db.dao().getBusinessProfile() ?: BusinessProfileEntity())
+            }
+            val party = details.first
+            val lines = details.second
+            val profile = details.third
+            val folder = File(cacheDir, "invoice_shares").apply { mkdirs() }
+            val safeNumber = invoice.invoiceNumber.replace(Regex("[^A-Za-z0-9_-]"), "_")
+            val file = File(folder, "BFP-Bill-$safeNumber.pdf")
+            val pdf = android.graphics.pdf.PdfDocument()
+            val width = 595; val height = 842
+            val normal = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.BLACK; textSize = 11f }
+            val strong = android.graphics.Paint(normal).apply { typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD) }
+            var pageNo = 1
+            var page = pdf.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(width, height, pageNo).create())
+            var canvas = page.canvas
+            var y = 42f
+            fun write(text: String, bold: Boolean = false, size: Float = 11f, step: Float = 19f) {
+                val p = android.graphics.Paint(if (bold) strong else normal).apply { textSize = size }
+                canvas.drawText(text.take(92), 36f, y, p); y += step
+            }
+            fun nextPage() {
+                if (y > 785f) {
+                    pdf.finishPage(page); pageNo++
+                    page = pdf.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(width, height, pageNo).create())
+                    canvas = page.canvas; y = 42f
+                }
+            }
+            write(profile.businessName.ifBlank { "BHAJAN FASHION POINT" }, true, 20f, 26f)
+            write(profile.address, false, 10f)
+            write("Mobile: ${profile.mobile}    GSTIN: ${profile.gstin}", false, 10f, 25f)
+            write("SALES INVOICE", true, 15f, 25f)
+            write("Bill No: ${invoice.invoiceNumber}    Date: ${java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.US).format(java.util.Date(invoice.dateEpochMillis))}", true)
+            write("Customer: ${party.name}", true)
+            write("Mobile: ${party.mobile}")
+            if (party.address.isNotBlank()) write("Address: ${party.address}")
+            y += 8f
+            write("ITEM                         QTY          RATE             AMOUNT", true, 10f, 20f)
+            canvas.drawLine(36f, y - 12f, 559f, y - 12f, normal)
+            lines.forEach { item ->
+                nextPage()
+                val amount = item.taxablePaise + item.cgstPaise + item.sgstPaise + item.igstPaise
+                write("${item.itemNameSnapshot.take(25).padEnd(25)}  ${item.quantity}       Rs.${"%.2f".format(item.ratePaise / 100.0)}       Rs.${"%.2f".format(amount / 100.0)}", false, 10f, 18f)
+            }
+            y += 10f; canvas.drawLine(330f, y, 559f, y, normal); y += 20f
+            write("Subtotal: Rs.${"%.2f".format(invoice.subtotalPaise / 100.0)}")
+            write("Discount: Rs.${"%.2f".format(invoice.discountPaise / 100.0)}")
+            write("CGST: Rs.${"%.2f".format(invoice.cgstPaise / 100.0)}")
+            write("SGST: Rs.${"%.2f".format(invoice.sgstPaise / 100.0)}")
+            write("IGST: Rs.${"%.2f".format(invoice.igstPaise / 100.0)}")
+            write("GRAND TOTAL: Rs.${"%.2f".format(invoice.totalPaise / 100.0)}", true, 15f, 24f)
+            write("Paid: Rs.${"%.2f".format(invoice.paidPaise / 100.0)}    Balance: Rs.${"%.2f".format((invoice.totalPaise - invoice.paidPaise) / 100.0)}")
+            if (invoice.note.isNotBlank()) write("Note: ${invoice.note}")
+            write("Thank you for shopping with us!", true)
+            pdf.finishPage(page)
+            withContext(Dispatchers.IO) { file.outputStream().use { pdf.writeTo(it) }; pdf.close() }
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"; putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "BFP Bill ${invoice.invoiceNumber}")
+                putExtra(Intent.EXTRA_TEXT, "नमस्ते ${party.name}, आपका बिल ${invoice.invoiceNumber} PDF में संलग्न है।")
+                val mobileDigits = party.mobile.filter { it.isDigit() }.let { if (it.length == 10) "91$it" else it }
+                if (mobileDigits.length >= 10) putExtra("jid", "$mobileDigits@s.whatsapp.net")
+                clipData = android.content.ClipData.newUri(contentResolver, "Invoice PDF", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            send.setPackage("com.whatsapp")
+            try { startActivity(send) } catch (_: Exception) {
+                send.setPackage(null); startActivity(Intent.createChooser(send, "बिल PDF शेयर करें"))
+            }
+        } catch (e: Exception) { toast(e.message ?: "बिल PDF शेयर नहीं हो सका") }
     }
 
     private suspend fun printInvoice(invoice: InvoiceEntity) {
@@ -3006,8 +3118,18 @@ class MainActivity : AppCompatActivity() {
             box.addView(note)
             if (kind == "PURCHASE") {
                 purchaseAttachmentStatusView = attachmentStatus
+                val attachmentActions = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                val cameraAttachmentButton = Button(this@MainActivity).apply {
+                    text = "📷 कैमरे से फोटो लें"
+                    isAllCaps = false
+                    setOnClickListener { takePurchaseBillPhoto() }
+                }
                 val attachmentButton = Button(this@MainActivity).apply {
-                    text = if (pendingPurchaseAttachmentPath.isBlank()) "सप्लायर बिल की फोटो / PDF जोड़ें" else "दूसरी फोटो / PDF चुनें"
+                    text = if (pendingPurchaseAttachmentPath.isBlank()) "Gallery / PDF चुनें" else "दूसरी फोटो / PDF चुनें"
+                    isAllCaps = false
                     setOnClickListener { choosePurchaseAttachment.launch(arrayOf("image/*", "application/pdf")) }
                 }
                 purchaseAttachmentButtonView = attachmentButton
@@ -3067,7 +3189,9 @@ class MainActivity : AppCompatActivity() {
                     visibility = if (pendingPurchaseAttachmentPath.isNotBlank() && resolvePurchaseAttachment(pendingPurchaseAttachmentPath).isFile) View.VISIBLE else View.GONE
                     setOnClickListener { openPurchaseAttachment(pendingPurchaseAttachmentPath) }
                 }
-                box.addView(attachmentStatus); box.addView(attachmentButton); box.addView(openAttachment); box.addView(scanAttachment); box.addView(removeAttachment)
+                attachmentActions.addView(cameraAttachmentButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
+                attachmentActions.addView(attachmentButton, LinearLayout.LayoutParams(0, dp(48), 1f))
+                box.addView(attachmentStatus); box.addView(attachmentActions); box.addView(openAttachment); box.addView(scanAttachment); box.addView(removeAttachment)
                 purchaseAttachmentOpenButtonView = openAttachment
             }
             // DEV110: one continuous billing canvas. Only the selected customer
@@ -3189,7 +3313,20 @@ class MainActivity : AppCompatActivity() {
                             } else repo.update(existing.id, input)
                             invoiceSaved = true
                             if (existing != null && existing.attachmentPath.isNotBlank() && existing.attachmentPath != input.attachmentPath) resolvePurchaseAttachment(existing.attachmentPath).delete()
-                            withContext(Dispatchers.Main) { toast("बिल सेव हो गया"); dialog.dismiss() }
+                            withContext(Dispatchers.Main) {
+                                toast("बिल सेव हो गया"); dialog.dismiss()
+                                if (kind == "SALE") {
+                                    val savedInvoice = withContext(Dispatchers.IO) {
+                                        db.dao().observeInvoices("SALE").first().firstOrNull { it.invoiceNumber == input.invoiceNumber }
+                                    }
+                                    if (savedInvoice != null) AlertDialog.Builder(this@MainActivity)
+                                        .setTitle("बिल सेव हो गया")
+                                        .setMessage("क्या इस बिल की PDF कॉपी अभी WhatsApp पर ग्राहक को भेजने के लिए खोलें?")
+                                        .setNegativeButton("बाद में", null)
+                                        .setPositiveButton("WhatsApp खोलें") { _, _ -> lifecycleScope.launch { shareInvoicePdf(savedInvoice) } }
+                                        .show()
+                                }
+                            }
                         } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल सेव नहीं हुआ") } } }
                     }.show()
                 }

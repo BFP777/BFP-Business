@@ -15,7 +15,7 @@ checks = {
     'unallocated advances offset invoice balances': 'it.invoiceId == null' in repo and 'coerceAtLeast(0L)' in repo,
     'party list opens the selected party ledger': 'setOnClickListener { showPartyLedger(party) }' in main,
     'Room schema remains unchanged': 'version = 10' in db,
-    'app version is 5.52.0 / 552': 'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle,
+    'app version is 5.52.0 / 552': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
 }
 for label, ok in checks.items():
     print(('PASS' if ok else 'FAIL') + ': ' + label)

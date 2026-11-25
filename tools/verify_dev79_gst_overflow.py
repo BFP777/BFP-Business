@@ -11,7 +11,7 @@ checks = {
     'taxable and tax totals use checked addition': 'checkedSum(results.map { it.taxablePaise }' in calc and 'checkedSum(results.map { it.cgstPaise }' in calc and 'checkedSum(results.map { it.sgstPaise }' in calc and 'checkedSum(results.map { it.igstPaise }' in calc,
     'tests cover fractional rounding and line overflow': 'fractionalQuantityUsesPaiseHalfUpRounding' in tests and 'rejectsSingleLineAmountBeyondLongRange' in tests,
     'test covers subtotal overflow across multiple lines': 'rejectsInvoiceSubtotalOverflowAcrossLines' in tests,
-    'version advanced without Room schema change': 'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle,
+    'version advanced without Room schema change': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
 }
 for label, ok in checks.items():
     print(f"{'PASS' if ok else 'FAIL'}: {label}")

@@ -19,5 +19,5 @@ if not all(checks.values()):
     raise SystemExit(1)
 
 gradle = (ROOT / 'app/build.gradle.kts').read_text(encoding='utf-8')
-assert 'versionCode = 561' in gradle and 'versionName = "5.61.0"' in gradle
+assert 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle
 print('PASS: current app version 5.52.0 / 552')
