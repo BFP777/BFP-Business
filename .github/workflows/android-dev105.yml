@@ -29,8 +29,8 @@ jobs:
           set -euo pipefail
           test -f settings.gradle.kts
           test -f app/build.gradle.kts
-          grep -q 'versionCode = 563' app/build.gradle.kts
-          grep -q 'versionName = "5.63.0"' app/build.gradle.kts
+          grep -q 'versionCode = 564' app/build.gradle.kts
+          grep -q 'versionName = "5.64.0"' app/build.gradle.kts
           echo "DEV114 root Android project verified."
 
       - name: Setup Java 17
@@ -84,7 +84,7 @@ jobs:
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n 1)
           test -n "$BUILD_TOOLS"
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='in.bhajan.bfpbusinesspro' versionCode='563' versionName='5.63.0'"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E "package: name='in.bhajan.bfpbusinesspro' versionCode='564' versionName='5.64.0'"
           echo "DEV114 signed APK signature and version verified."
 
       - name: Upload DEV114 signed APK
