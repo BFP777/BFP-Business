@@ -2369,14 +2369,54 @@ class MainActivity : AppCompatActivity() {
                                     setPadding(dp(18), dp(12), dp(18), dp(12))
                                 }
                                 val scroll = ScrollView(this@MainActivity).apply { addView(detailView) }
-                                AlertDialog.Builder(this@MainActivity)
+                                val billDetailsDialog = AlertDialog.Builder(this@MainActivity)
                                     .setTitle("BILL DETAILS")
                                     .setView(scroll)
                                     .setPositiveButton("PDF / PRINT") { _, _ ->
                                         lifecycleScope.launch { printInvoice(invoice) }
                                     }
+                                    .setNeutralButton("DELETE COMPLETE BILL", null)
                                     .setNegativeButton("CLOSE", null)
-                                    .show()
+                                    .create()
+                                billDetailsDialog.setOnShowListener {
+                                    val deleteButton = billDetailsDialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+                                    deleteButton.apply {
+                                        setTextColor(0xFFB3261E.toInt())
+                                        setOnClickListener {
+                                            AlertDialog.Builder(this@MainActivity)
+                                                .setTitle("Delete complete bill?")
+                                                .setMessage(
+                                                    "Bill ${invoice.invoiceNumber} and all its items will be deleted together. " +
+                                                        "Payments linked to this bill will also be reversed from cash/bank and the party ledger. " +
+                                                        "Related stock will be adjusted. Other unlinked party payments will remain unchanged. " +
+                                                        "This action cannot be undone."
+                                                )
+                                                .setNegativeButton("CANCEL", null)
+                                                .setPositiveButton("DELETE BILL") { _, _ ->
+                                                    deleteButton.isEnabled = false
+                                                    lifecycleScope.launch(Dispatchers.IO) {
+                                                        try {
+                                                            InvoiceRepository(db).delete(invoice.id)
+                                                            if (invoice.attachmentPath.isNotBlank()) {
+                                                                resolvePurchaseAttachment(invoice.attachmentPath).delete()
+                                                            }
+                                                            withContext(Dispatchers.Main) {
+                                                                billDetailsDialog.dismiss()
+                                                                toast("Complete bill ${invoice.invoiceNumber} deleted")
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            withContext(Dispatchers.Main) {
+                                                                deleteButton.isEnabled = true
+                                                                toast(e.message ?: "Bill could not be deleted")
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                .show()
+                                        }
+                                    }
+                                }
+                                billDetailsDialog.show()
                             } catch (e: Exception) {
                                 toast(e.message ?: "Could not open bill details")
                             }
