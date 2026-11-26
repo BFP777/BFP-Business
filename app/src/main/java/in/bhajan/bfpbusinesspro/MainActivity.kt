@@ -118,7 +118,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         db = BfpDatabase.get(this)
-        showDashboard()
+        showDashboardSummary()
     }
 
     private fun base(title: String): LinearLayout {
@@ -191,56 +191,9 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(-1, dp(50)).apply { bottomMargin = dp(7) })
     }
 
+    // Legacy HOME navigation now opens the approved Business Dashboard.
     private fun showDashboard() {
-        val page = base("HOME")
-        val quick = sectionCard("Quick Links")
-        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        listOf("＋\nAdd Txn", "▤\nSale Report", "⚙\nTxn Settings", "›\nShow All").forEachIndexed { i, label ->
-            actions.addView(TextView(this).apply {
-                text = label; textSize = 13f; gravity = Gravity.CENTER; setTextColor(0xFF414657.toInt())
-                setPadding(dp(2), dp(12), dp(2), dp(10))
-                setOnClickListener { when (i) { 0 -> showInvoices("SALE"); 1 -> showReports(); 2 -> showGstSettings(); else -> showAllTransactions() } }
-            }, LinearLayout.LayoutParams(0, dp(76), 1f))
-        }
-        quick.addView(actions); page.addView(quick)
-
-        val search = EditText(this).apply {
-            hint = "⌕  Search for a transaction"; textSize = 15f; setSingleLine(true)
-            setPadding(dp(16), dp(10), dp(16), dp(10)); background = rounded(0xFFFFFFFF.toInt(), 18)
-        }
-        page.addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(14); bottomMargin = dp(12) })
-
-        page.addView(sectionCard("Recent Transactions").apply {
-            addView(TextView(this@MainActivity).apply { text = "हाल की बिक्री, खरीद, पेमेंट और खर्च यहाँ दिखाई देंगे। पूरी सूची के लिए Show All दबाएँ।"; textSize = 13f; setTextColor(0xFF85899A.toInt()); setPadding(0, dp(8), 0, dp(8)) })
-            addView(actionChip("Show All Transactions") { showAllTransactions() })
-        })
-        val recent = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        page.addView(recent)
-        lifecycleScope.launch {
-            try {
-                val sales = withContext(Dispatchers.IO) { db.dao().observeInvoices("SALE").first() }
-                val purchases = withContext(Dispatchers.IO) { db.dao().observeInvoices("PURCHASE").first() }
-                val latest = (sales + purchases).sortedByDescending { it.dateEpochMillis }.take(8)
-                recent.removeAllViews()
-                if (latest.isEmpty()) recent.addView(sectionCard("अभी कोई Transaction नहीं है"))
-                latest.forEach { invoice ->
-                    val party = withContext(Dispatchers.IO) { db.dao().getParty(invoice.partyId)?.name ?: "पार्टी" }
-                    val kind = if (invoice.kind == "SALE") "SALE" else "PURCHASE"
-                    val date = java.text.SimpleDateFormat("dd MMM, yy", java.util.Locale("en", "IN")).format(java.util.Date(invoice.dateEpochMillis))
-                    val row = sectionCard(party).apply {
-                        addView(TextView(this@MainActivity).apply { text = "$kind  •  $date"; textSize = 12f; setTextColor(0xFF85899A.toInt()) })
-                        addView(TextView(this@MainActivity).apply { text = "₹${invoice.totalPaise / 100.0}     ${if (invoice.totalPaise > invoice.paidPaise) "बाकी ₹${(invoice.totalPaise-invoice.paidPaise)/100.0}" else "Paid"}"; textSize = 16f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF34394B.toInt()); setPadding(0, dp(8), 0, 0) })
-                        setOnClickListener { showInvoices(invoice.kind) }
-                    }
-                    recent.addView(row)
-                }
-            } catch (_: Exception) { recent.addView(emptyLabel("ट्रांजेक्शन लोड नहीं हो सके")) }
-        }
-        val sale = Button(this).apply {
-            text = "₹  Add New Sale"; isAllCaps = false; textSize = 16f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(-1); background = rounded(0xFFEA1744.toInt(), 28); setOnClickListener { showInvoices("SALE") }
-        }
-        page.addView(sale, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(10); bottomMargin = dp(12) })
+        showDashboardSummary()
     }
 
     private fun showDashboardSummary() {
@@ -2731,29 +2684,48 @@ class MainActivity : AppCompatActivity() {
                     summary.text = "$index. ${row.name.text}\nमात्रा (Qty): $q     रेट (Rate): ₹${"%.2f".format(r)}\nकुल (Amount): ₹${"%.2f".format(quantity * r)}" + if (kind == "PURCHASE") "     GST: ${row.gst.text}%" else ""
                 }
                 refreshSummary()
-                val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
-                val container = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(5)); addView(summary) }
-                val edit = Button(this@MainActivity).apply {
-                    text = "Edit"; isAllCaps = false; minHeight = dp(36)
+                val container = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, 0, 0, dp(8))
+                    addView(summary)
+                    isClickable = true
                     setOnClickListener {
-                        draftCode.setText(row.code.text); draftName.setText(row.name.text); draftQty.setText(row.quantity.text); draftRate.setText(row.rate.text); draftPurchaseGst.setText(row.gst.text); draftHsn.setText(row.hsn.text)
-                        editingRow = row
-                        addButton?.text = "बदलाव सेव करें"
-                        draftName.requestFocus()
-                        toast("आइटम एडिट करें और बदलाव सेव करें")
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(row.name.text.toString())
+                            .setItems(arrayOf("Edit Item", "Delete Item", "Cancel")) { dialog, choice ->
+                                when (choice) {
+                                    0 -> {
+                                        draftCode.setText(row.code.text)
+                                        draftName.setText(row.name.text)
+                                        draftQty.setText(row.quantity.text)
+                                        draftRate.setText(row.rate.text)
+                                        draftPurchaseGst.setText(row.gst.text)
+                                        draftHsn.setText(row.hsn.text)
+                                        editingRow = row
+                                        addButton?.text = "बदलाव सेव करें"
+                                        draftName.requestFocus()
+                                        toast("आइटम एडिट करें और बदलाव सेव करें")
+                                    }
+                                    1 -> AlertDialog.Builder(this@MainActivity)
+                                        .setMessage("${row.name.text} हटाएँ?")
+                                        .setNegativeButton("रद्द", null)
+                                        .setPositiveButton("हटाएँ") { _, _ ->
+                                            rows.remove(row)
+                                            linesBox.removeView(container)
+                                            refreshItemCount()
+                                            rows.forEachIndexed { i, r ->
+                                                r.summary?.text = r.summary?.text?.toString()
+                                                    ?.replace(Regex("^\\\\d+\\\\."), "${i + 1}.") ?: ""
+                                            }
+                                            if (editingRow === row) {
+                                                editingRow = null
+                                                addButton?.text = "+ आइटम जोड़ें"
+                                            }
+                                        }.show()
+                                }
+                            }.show()
                     }
                 }
-                val delete = Button(this@MainActivity).apply {
-                    text = "हटाएँ"; isAllCaps = false; minHeight = dp(36)
-                    setOnClickListener {
-                        AlertDialog.Builder(this@MainActivity).setMessage("${row.name.text} हटाएँ?").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ ->
-                            rows.remove(row); linesBox.removeView(container); refreshItemCount(); rows.forEachIndexed { i, r -> r.summary?.text = r.summary?.text?.toString()?.replace(Regex("^\\d+\\."), "${i + 1}.") ?: "" }
-                            if (editingRow === row) { editingRow = null; addButton?.text = "+ आइटम जोड़ें" }
-                        }.show()
-                    }
-                }
-                actions.addView(edit); actions.addView(delete)
-                container.addView(actions)
                 linesBox.addView(container)
                 refreshItemCount()
                 itemListScroll?.post { itemListScroll?.fullScroll(View.FOCUS_DOWN) }

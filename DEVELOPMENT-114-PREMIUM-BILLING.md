@@ -19,3 +19,9 @@ Based on the user-provided `BFP-Business-main (5).zip`.
 ## Not claimed
 - Android Gradle compilation and real-device testing have not been run here.
 - This visual refinement does not yet add new firm/godown/payment-terms data fields or barcode hardware integration beyond existing project behavior.
+
+## Item-row interaction update
+- Removed always-visible Edit and Delete buttons below every invoice item.
+- Tapping an item row now opens an action menu with Edit Item and Delete Item.
+- Delete still requires a confirmation step.
+- Item row ordering, totals, item count and editing draft flow remain connected to the existing logic.
