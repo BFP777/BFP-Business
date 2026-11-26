@@ -2684,7 +2684,7 @@ class MainActivity : AppCompatActivity() {
                     summary.text = "$index. ${row.name.text}\nमात्रा (Qty): $q     रेट (Rate): ₹${"%.2f".format(r)}\nकुल (Amount): ₹${"%.2f".format(quantity * r)}" + if (kind == "PURCHASE") "     GST: ${row.gst.text}%" else ""
                 }
                 refreshSummary()
-                val container = LinearLayout(this@MainActivity).apply {
+                val itemRowContainer = LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(0, 0, 0, dp(8))
                     addView(summary)
@@ -2727,7 +2727,7 @@ class MainActivity : AppCompatActivity() {
                             }.show()
                     }
                 }
-                linesBox.addView(container)
+                linesBox.addView(itemRowContainer)
                 refreshItemCount()
                 itemListScroll?.post { itemListScroll?.fullScroll(View.FOCUS_DOWN) }
             }
