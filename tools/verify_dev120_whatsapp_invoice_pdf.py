@@ -11,7 +11,7 @@ checks = {
     "share chooser fallback": 'Intent.createChooser(send, "बिल PDF शेयर करें")' in main,
     "post-save share prompt": "क्या इस बिल की PDF कॉपी अभी WhatsApp" in main,
     "cache directory exposed only through FileProvider": 'cache-path name="invoice_share_cache" path="invoice_shares/"' in paths,
-    "version bumped": 'versionCode = 563' in gradle and 'versionName = "5.63.0"' in gradle,
+    "version bumped": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

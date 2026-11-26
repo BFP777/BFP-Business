@@ -183,6 +183,10 @@ class LedgerRepository(private val database: BfpDatabase) {
             if (it.bankAccountId == null || it.bankAccountId !in accountIds) {
                 missingBank += "CASH-${it.id}"
             }
+            if (it.entryType == "BANK_TRANSFER") {
+                val destinationId = it.note.split("|", limit = 4).getOrNull(2)?.toLongOrNull()
+                if (destinationId == null || destinationId !in accountIds) missingBank += "TRANSFER-TO-${it.id}"
+            }
         }
         salaries.filter { it.mode == "BANK" }.forEach {
             if (it.bankAccountId == null || it.bankAccountId !in accountIds) {
@@ -239,6 +243,8 @@ class LedgerRepository(private val database: BfpDatabase) {
             entry.mode == "BANK" && entry.entryType == "EXPENSE" -> -entry.amountPaise
             entry.entryType == "CASH_DEPOSIT" -> entry.amountPaise
             entry.entryType == "CASH_WITHDRAWAL" -> -entry.amountPaise
+            entry.entryType == "BANK_ADJUSTMENT_IN" -> entry.amountPaise
+            entry.entryType == "BANK_ADJUSTMENT_OUT" -> -entry.amountPaise
             else -> 0L
         } }
         return paymentNet + entryNet - salaryOut
@@ -255,6 +261,14 @@ class LedgerRepository(private val database: BfpDatabase) {
             entry.mode == "BANK" && entry.entryType == "EXPENSE" -> -entry.amountPaise
             entry.entryType == "CASH_DEPOSIT" -> entry.amountPaise
             entry.entryType == "CASH_WITHDRAWAL" -> -entry.amountPaise
+            entry.entryType == "BANK_ADJUSTMENT_IN" -> if (entry.mode == "BANK") entry.amountPaise else 0L
+            entry.entryType == "BANK_ADJUSTMENT_OUT" -> if (entry.mode == "BANK") -entry.amountPaise else 0L
+            entry.entryType == "BANK_TRANSFER" -> {
+                val parts = entry.note.split("|", limit = 4)
+                val sourceId = parts.getOrNull(1)?.toLongOrNull()
+                val destinationId = parts.getOrNull(2)?.toLongOrNull()
+                when (bankAccountId) { sourceId -> -entry.amountPaise; destinationId -> entry.amountPaise; else -> 0L }
+            }
             else -> 0L
         } }
         return paymentNet + entryNet - salaryOut

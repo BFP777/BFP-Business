@@ -6,7 +6,7 @@ scheduler = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/backup/AutoBacku
 main = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt").read_text()
 db = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt").read_text()
 checks = {
-    "version 5.46.0 / 546": "versionCode = 562" in gradle and 'versionName = "5.62.0"' in gradle,
+    "version 5.46.0 / 546": "versionCode = 564" in gradle and 'versionName = "5.64.0"' in gradle,
     "Room schema remains 10": "version = 10" in db,
     "manual retry enqueues one-time backup work": "fun runNow(context: Context)" in scheduler and "OneTimeWorkRequestBuilder<AutoBackupWorker>" in scheduler,
     "backup failure without folder is recorded": "FOLDER_NOT_SELECTED" in worker and "Backup Folder नहीं चुना गया" in worker,

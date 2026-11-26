@@ -1589,8 +1589,11 @@ class MainActivity : AppCompatActivity() {
         val page = base("BANK")
         addAction(page, "+ Bank Account जोड़ें", 0xFF0879C9.toInt()) { showBankAccounts() }
         addAction(page, "Opening Cash / Bank Balance", 0xFF2E8B57.toInt()) { cashEntryDialog("OPENING") }
-        addAction(page, "Cash जमा करें (Bank में)", 0xFF245A78.toInt()) { cashEntryDialog("CASH_DEPOSIT") }
-        addAction(page, "Bank से Cash निकालें", 0xFF245A78.toInt()) { cashEntryDialog("CASH_WITHDRAWAL") }
+        addAction(page, "Bank to Bank Transfer", 0xFF245A78.toInt()) { bankToBankTransferDialog() }
+        addAction(page, "Bank to Cash", 0xFF245A78.toInt()) { cashEntryDialog("CASH_WITHDRAWAL") }
+        addAction(page, "Cash to Bank", 0xFF245A78.toInt()) { cashEntryDialog("CASH_DEPOSIT") }
+        addAction(page, "Deposit / Withdrawal / Opening Balance", 0xFF2E8B57.toInt()) { cashEntryDialog("OPENING") }
+        addAction(page, "Edit Bank Balance / Adjustment", 0xFF8A5A20.toInt()) { editBankBalancePicker() }
         addAction(page, "Bank Accounts Manage करें") { showBankAccounts() }
         addAction(page, "Cash / Bank Reconciliation जाँचें", 0xFF2E8B57.toInt()) { showMoneyReconciliation() }
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -1612,16 +1615,26 @@ class MainActivity : AppCompatActivity() {
                         "OPENING" -> "Opening Balance"
                         "CASH_DEPOSIT" -> "Cash जमा — Bank में"
                         "CASH_WITHDRAWAL" -> "Bank से Cash निकासी"
+                        "BANK_TRANSFER" -> "Bank to Bank Transfer"
+                        "BANK_ADJUSTMENT_IN" -> "Bank Balance Adjustment (+)"
+                        "BANK_ADJUSTMENT_OUT" -> "Bank Balance Adjustment (-)"
                         else -> entry.entryType
                     }
                     val date = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale("en", "IN")).format(java.util.Date(entry.dateEpochMillis))
                     val bankName = entry.bankAccountId?.let { id -> withContext(Dispatchers.IO) { db.dao().getBankAccount(id)?.accountName } }
-                    val row = card("$date | $title\n${entry.mode}${bankName?.let { " — $it" }.orEmpty()} — ₹${entry.amountPaise / 100.0}\n${entry.note}\nटैप करके Edit/Delete करें")
+                    val detailNote = if (entry.entryType == "BANK_TRANSFER") {
+                        val parts = entry.note.split("|", limit = 4)
+                        val destinationId = parts.getOrNull(2)?.toLongOrNull()
+                        val destinationName = destinationId?.let { id -> withContext(Dispatchers.IO) { db.dao().getBankAccount(id)?.accountName } } ?: "Unknown bank"
+                        "${bankName ?: "Source"} → $destinationName${parts.getOrNull(3)?.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()}"
+                    } else entry.note
+                    val row = card("$date | $title\n${entry.mode}${bankName?.let { " — $it" }.orEmpty()} — ₹${entry.amountPaise / 100.0}\n$detailNote\nटैप करके Edit/Delete करें")
                     row.setOnClickListener {
-                        AlertDialog.Builder(this@MainActivity).setTitle(title).setItems(arrayOf("Edit", "Delete")) { _, which ->
-                            when (which) {
-                                0 -> cashEntryDialog(entry.entryType, entry)
-                                1 -> AlertDialog.Builder(this@MainActivity).setTitle("एंट्री हटाएँ?").setMessage("यह एंट्री बैलेंस से भी हट जाएगी।")
+                        val actions = if (entry.entryType in setOf("BANK_TRANSFER", "BANK_ADJUSTMENT_IN", "BANK_ADJUSTMENT_OUT")) arrayOf("Delete") else arrayOf("Edit", "Delete")
+                        AlertDialog.Builder(this@MainActivity).setTitle(title).setItems(actions) { _, which ->
+                            when {
+                                actions[which] == "Edit" -> cashEntryDialog(entry.entryType, entry)
+                                else -> AlertDialog.Builder(this@MainActivity).setTitle("एंट्री हटाएँ?").setMessage("यह एंट्री बैलेंस से भी हट जाएगी।")
                                     .setNegativeButton("रद्द", null).setPositiveButton("Delete") { _, _ -> lifecycleScope.launch {
                                         try { withContext(Dispatchers.IO) { db.dao().deleteCashEntry(entry) }; showBankManagement() }
                                         catch (e: Exception) { toast(e.message ?: "एंट्री हटाई नहीं जा सकी") }
@@ -1656,6 +1669,74 @@ class MainActivity : AppCompatActivity() {
                 AlertDialog.Builder(this@MainActivity).setTitle("Cash / Bank Reconciliation")
                     .setMessage(message).setPositiveButton("ठीक है", null).show()
             } catch (e: Exception) { toast(e.message ?: "Reconciliation रिपोर्ट नहीं बन सकी") }
+        }
+    }
+
+    private fun bankToBankTransferDialog() {
+        lifecycleScope.launch {
+            val accounts = withContext(Dispatchers.IO) { db.dao().observeBankAccounts().first() }
+            if (accounts.size < 2) { toast("Bank-to-bank transfer के लिए कम से कम दो bank accounts जोड़ें"); return@launch }
+            val box = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+            val from = Spinner(this@MainActivity).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, accounts.map { it.accountName }) }
+            val to = Spinner(this@MainActivity).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, accounts.map { it.accountName }) ; setSelection(1) }
+            val amount = editField("Amount (₹)", "")
+            val note = editField("Note (optional)", "")
+            box.addView(TextView(this@MainActivity).apply { text = "From Bank Account" }); box.addView(from)
+            box.addView(TextView(this@MainActivity).apply { text = "To Bank Account" }); box.addView(to)
+            box.addView(amount); box.addView(note)
+            AlertDialog.Builder(this@MainActivity).setTitle("Bank to Bank Transfer").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val source = accounts.getOrNull(from.selectedItemPosition) ?: return@setOnClickListener
+                        val destination = accounts.getOrNull(to.selectedItemPosition) ?: return@setOnClickListener
+                        if (source.id == destination.id) { toast("From और To bank अलग-अलग चुनें"); return@setOnClickListener }
+                        val value = amount.text.toString().trim().toDoubleOrNull()
+                        if (value == null || !value.isFinite() || value <= 0 || value * 100 > Long.MAX_VALUE.toDouble()) { amount.error = "Valid amount दर्ज करें"; return@setOnClickListener }
+                        val paise = kotlin.math.round(value * 100).toLong()
+                        lifecycleScope.launch {
+                            try {
+                                val balance = withContext(Dispatchers.IO) { LedgerRepository(db).bankAccountBalancePaise(source.id) }
+                                if (balance < paise) { amount.error = "Source bank में पर्याप्त balance नहीं है"; return@launch }
+                                val memo = note.text.toString().trim().replace("|", "/")
+                                val entry = CashEntryEntity(entryType = "BANK_TRANSFER", mode = "BANK", amountPaise = paise, dateEpochMillis = System.currentTimeMillis(), note = "BANK_TRANSFER|${source.id}|${destination.id}|$memo", bankAccountId = source.id)
+                                withContext(Dispatchers.IO) { db.dao().insertCashEntry(entry) }
+                                dialog.dismiss(); showBankManagement()
+                            } catch (e: Exception) { toast(e.message ?: "Transfer save नहीं हुआ") }
+                        }
+                    }
+                }; dialog.show()
+            }
+        }
+    }
+
+    private fun editBankBalancePicker() {
+        lifecycleScope.launch {
+            val accounts = withContext(Dispatchers.IO) { db.dao().observeBankAccounts().first() }
+            if (accounts.isEmpty()) { toast("पहले bank account जोड़ें"); return@launch }
+            AlertDialog.Builder(this@MainActivity).setTitle("Select Bank Account").setItems(accounts.map { it.accountName }.toTypedArray()) { _, index ->
+                val account = accounts[index]
+                lifecycleScope.launch {
+                    val current = withContext(Dispatchers.IO) { LedgerRepository(db).bankAccountBalancePaise(account.id) }
+                    val field = editField("New Balance (₹)", (current / 100.0).toString())
+                    AlertDialog.Builder(this@MainActivity).setTitle("Edit Balance — ${account.accountName}").setMessage("Current balance: ₹${current / 100.0}\nयह पुरानी entries हटाए बिना adjustment entry बनाएगा।").setView(field).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create().also { dialog ->
+                        dialog.setOnShowListener {
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                                val target = field.text.toString().trim().toDoubleOrNull()
+                                if (target == null || !target.isFinite() || target < 0 || target * 100 > Long.MAX_VALUE.toDouble()) { field.error = "Valid balance दर्ज करें"; return@setOnClickListener }
+                                val targetPaise = kotlin.math.round(target * 100).toLong(); val delta = targetPaise - current
+                                if (delta == 0L) { dialog.dismiss(); return@setOnClickListener }
+                                lifecycleScope.launch {
+                                    try {
+                                        val entry = CashEntryEntity(entryType = if (delta > 0) "BANK_ADJUSTMENT_IN" else "BANK_ADJUSTMENT_OUT", mode = "BANK", amountPaise = kotlin.math.abs(delta), dateEpochMillis = System.currentTimeMillis(), note = "Direct balance edit adjustment — ${account.accountName}", bankAccountId = account.id)
+                                        withContext(Dispatchers.IO) { db.dao().insertCashEntry(entry) }
+                                        dialog.dismiss(); showBankManagement()
+                                    } catch (e: Exception) { toast(e.message ?: "Balance update नहीं हुआ") }
+                                }
+                            }
+                        }; dialog.show()
+                    }
+                }
+            }.show()
         }
     }
 

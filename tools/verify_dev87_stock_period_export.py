@@ -15,7 +15,7 @@ checks = {
     'monthly business trend reuse': 'observeMonthlyBusinessTrends(startMillis, endMillis)' in main,
     'CSV export': 'text/csv' in main and 'Excel CSV Export' in main,
     'PDF export': 'application/pdf' in main and 'PdfDocument' in main,
-    'version 5.43.0 / 533': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
+    'version 5.43.0 / 533': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
 }
 for name, ok in checks.items():
     print(f'{name}: {"PASS" if ok else "FAIL"}')
