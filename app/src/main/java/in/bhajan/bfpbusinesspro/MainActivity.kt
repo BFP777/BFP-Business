@@ -118,7 +118,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         db = BfpDatabase.get(this)
-        showDashboardSummary()
+        showDashboard()
     }
 
     private fun base(title: String): LinearLayout {
@@ -191,9 +191,56 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(-1, dp(50)).apply { bottomMargin = dp(7) })
     }
 
-    // The legacy HOME entry now routes to the approved Business Dashboard.
     private fun showDashboard() {
-        showDashboardSummary()
+        val page = base("HOME")
+        val quick = sectionCard("Quick Links")
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        listOf("＋\nAdd Txn", "▤\nSale Report", "⚙\nTxn Settings", "›\nShow All").forEachIndexed { i, label ->
+            actions.addView(TextView(this).apply {
+                text = label; textSize = 13f; gravity = Gravity.CENTER; setTextColor(0xFF414657.toInt())
+                setPadding(dp(2), dp(12), dp(2), dp(10))
+                setOnClickListener { when (i) { 0 -> showInvoices("SALE"); 1 -> showReports(); 2 -> showGstSettings(); else -> showAllTransactions() } }
+            }, LinearLayout.LayoutParams(0, dp(76), 1f))
+        }
+        quick.addView(actions); page.addView(quick)
+
+        val search = EditText(this).apply {
+            hint = "⌕  Search for a transaction"; textSize = 15f; setSingleLine(true)
+            setPadding(dp(16), dp(10), dp(16), dp(10)); background = rounded(0xFFFFFFFF.toInt(), 18)
+        }
+        page.addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(14); bottomMargin = dp(12) })
+
+        page.addView(sectionCard("Recent Transactions").apply {
+            addView(TextView(this@MainActivity).apply { text = "हाल की बिक्री, खरीद, पेमेंट और खर्च यहाँ दिखाई देंगे। पूरी सूची के लिए Show All दबाएँ।"; textSize = 13f; setTextColor(0xFF85899A.toInt()); setPadding(0, dp(8), 0, dp(8)) })
+            addView(actionChip("Show All Transactions") { showAllTransactions() })
+        })
+        val recent = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        page.addView(recent)
+        lifecycleScope.launch {
+            try {
+                val sales = withContext(Dispatchers.IO) { db.dao().observeInvoices("SALE").first() }
+                val purchases = withContext(Dispatchers.IO) { db.dao().observeInvoices("PURCHASE").first() }
+                val latest = (sales + purchases).sortedByDescending { it.dateEpochMillis }.take(8)
+                recent.removeAllViews()
+                if (latest.isEmpty()) recent.addView(sectionCard("अभी कोई Transaction नहीं है"))
+                latest.forEach { invoice ->
+                    val party = withContext(Dispatchers.IO) { db.dao().getParty(invoice.partyId)?.name ?: "पार्टी" }
+                    val kind = if (invoice.kind == "SALE") "SALE" else "PURCHASE"
+                    val date = java.text.SimpleDateFormat("dd MMM, yy", java.util.Locale("en", "IN")).format(java.util.Date(invoice.dateEpochMillis))
+                    val row = sectionCard(party).apply {
+                        addView(TextView(this@MainActivity).apply { text = "$kind  •  $date"; textSize = 12f; setTextColor(0xFF85899A.toInt()) })
+                        addView(TextView(this@MainActivity).apply { text = "₹${invoice.totalPaise / 100.0}     ${if (invoice.totalPaise > invoice.paidPaise) "बाकी ₹${(invoice.totalPaise-invoice.paidPaise)/100.0}" else "Paid"}"; textSize = 16f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF34394B.toInt()); setPadding(0, dp(8), 0, 0) })
+                        setOnClickListener { showInvoices(invoice.kind) }
+                    }
+                    recent.addView(row)
+                }
+            } catch (_: Exception) { recent.addView(emptyLabel("ट्रांजेक्शन लोड नहीं हो सके")) }
+        }
+        val sale = Button(this).apply {
+            text = "₹  Add New Sale"; isAllCaps = false; textSize = 16f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(-1); background = rounded(0xFFEA1744.toInt(), 28); setOnClickListener { showInvoices("SALE") }
+        }
+        page.addView(sale, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(10); bottomMargin = dp(12) })
     }
 
     private fun showDashboardSummary() {
@@ -2253,7 +2300,11 @@ class MainActivity : AppCompatActivity() {
             if (parties.isEmpty()) { toast("पहले ग्राहक/सप्लायर जोड़ें"); return@launch }
             val expectedKind = if (direction == "IN") "SALE" else "PURCHASE"
             val invoices = withContext(Dispatchers.IO) { db.dao().observeInvoices(expectedKind).first().filter { it.paidPaise < it.totalPaise || it.id == existing?.invoiceId } }
-            val box = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(6), dp(18), 0) }
+            val box = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(10), dp(16), dp(14))
+                setBackgroundColor(0xFFF4F7FC.toInt())
+            }
             val party = Spinner(this@MainActivity).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, parties.map { it.name }); setSelection(parties.indexOfFirst { it.id == (existing?.partyId ?: preselectedPartyId) }.coerceAtLeast(0)) }
             val billOptions = listOf("बिना बिल लिंक") + invoices.map { "${it.invoiceNumber} — बाकी ₹${(it.totalPaise - it.paidPaise) / 100.0}" }
             val bill = Spinner(this@MainActivity).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, billOptions); setSelection((invoices.indexOfFirst { it.id == existing?.invoiceId } + 1).coerceAtLeast(0)) }
@@ -2421,15 +2472,28 @@ class MainActivity : AppCompatActivity() {
             val parties = withContext(Dispatchers.IO) { db.dao().observeParties().first().filter { it.partyType == "BOTH" || it.partyType == if (kind == "SALE") "CUSTOMER" else "SUPPLIER" } }
             val businessProfile = withContext(Dispatchers.IO) { db.dao().getBusinessProfile() ?: BusinessProfileEntity() }
             if (parties.isEmpty() && kind == "PURCHASE") { toast("पहले सप्लायर जोड़ें"); return@launch }
-            val box = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(6), dp(18), 0) }
+            val box = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(10), dp(16), dp(14))
+                setBackgroundColor(0xFFF4F7FC.toInt())
+            }
             val number = editField("बिल नंबर", existing?.invoiceNumber ?: "${if (kind == "SALE") "S" else "P"}-${System.currentTimeMillis() % 1000000}")
             // New sales default to CREDIT; CASH creates an immediate cash receipt.
             var saleSettlementMode = "CREDIT"
             val saleSettlementPicker = if (kind == "SALE" && existing == null) RadioGroup(this@MainActivity).apply {
                 orientation = RadioGroup.HORIZONTAL
-                setPadding(0, dp(4), 0, dp(8))
-                val cash = RadioButton(this@MainActivity).apply { id = View.generateViewId(); text = "CASH"; textSize = 16f }
-                val credit = RadioButton(this@MainActivity).apply { id = View.generateViewId(); text = "CREDIT"; textSize = 16f; isChecked = true }
+                setPadding(dp(6), dp(4), dp(6), dp(8))
+                background = rounded(0xFFE8EDF5.toInt(), 24)
+                val cash = RadioButton(this@MainActivity).apply {
+                    id = View.generateViewId(); text = "CASH"; textSize = 15f
+                    setTextColor(0xFF53627A.toInt()); buttonTintList = android.content.res.ColorStateList.valueOf(0xFF1672D4.toInt())
+                    setPadding(dp(10), dp(8), dp(10), dp(8))
+                }
+                val credit = RadioButton(this@MainActivity).apply {
+                    id = View.generateViewId(); text = "CREDIT"; textSize = 15f; isChecked = true
+                    setTextColor(0xFF10265B.toInt()); buttonTintList = android.content.res.ColorStateList.valueOf(0xFF1672D4.toInt())
+                    setPadding(dp(10), dp(8), dp(10), dp(8))
+                }
                 addView(cash, RadioGroup.LayoutParams(0, -2, 1f))
                 addView(credit, RadioGroup.LayoutParams(0, -2, 1f))
                 setOnCheckedChangeListener { _, checkedId -> saleSettlementMode = if (checkedId == cash.id) "CASH" else "CREDIT" }
@@ -2952,8 +3016,8 @@ class MainActivity : AppCompatActivity() {
             // GST and notes move together in one scrollable area.
             val customerHeader = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(14), dp(8), dp(14), dp(8))
-                setBackgroundColor(0xFFF7F9FC.toInt())
+                setPadding(dp(14), dp(10), dp(14), dp(10))
+                setBackgroundColor(0xFFFFFFFF.toInt())
             }
             if (kind == "SALE") salePartyPicker?.let { customerHeader.addView(it) }
             val bodyScroll = ScrollView(this@MainActivity).apply {
@@ -2964,12 +3028,12 @@ class MainActivity : AppCompatActivity() {
             itemListScroll = bodyScroll
             val root = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(0xFFF7F9FC.toInt())
+                setBackgroundColor(0xFFF4F7FC.toInt())
                 val brandBar = LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(16), dp(13), dp(16), dp(13))
-                    setBackgroundColor(0xFF102B4E.toInt())
+                    setPadding(dp(18), dp(15), dp(18), dp(15))
+                    setBackgroundColor(0xFF10265B.toInt())
                 }
                 brandBar.addView(TextView(this@MainActivity).apply {
                     text = "BFP Business Pro"
@@ -2978,7 +3042,7 @@ class MainActivity : AppCompatActivity() {
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 brandBar.addView(TextView(this@MainActivity).apply {
-                    text = "BILLING"
+                    text = if (kind == "SALE") "NEW SALE" else "PURCHASE"
                     textSize = 12f
                     setTextColor(0xFFFFFFFF.toInt())
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
