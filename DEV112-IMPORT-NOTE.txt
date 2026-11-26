@@ -1,0 +1,5 @@
+BFP Business Pro DEV112 Final Source
+App version: 5.57.0 (557)
+Use this complete source ZIP as the repository contents. Do not import the nested DEV105 or DEV110 archives from earlier project backups.
+After pushing to GitHub, open Actions and run: BFP Business Pro DEV112 Android Build.
+The workflow runs offline source checks, Android unit tests, lint, and creates a debug APK artifact. Install/test the APK on the shop device before using it for live accounting.

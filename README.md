@@ -53,3 +53,10 @@ A successful source-level regression suite is not the same as a successful Andro
 - Development 55: full customer detail screen with separate SALE and RECEIPT tabs, customer-specific totals, and preselected party in new sale/receipt forms.
 - No database migration in this release.
 - Run offline checks with `python3 tools/verify_all.py`.
+
+
+## DEV112 final source package (5.57.0 / 557)
+
+This package is based on the DEV111 approved billing source. DEV112 adds atomic whole-invoice deletion: linked payments are deleted with the selected invoice, stock is reversed, and unlinked party payments remain untouched. The sale GST checkbox remains optional (default 5% for new sales); purchase GST remains item-wise.
+
+Run `python3 tools/verify_all.py` for offline/source regression checks. GitHub Actions workflow `.github/workflows/android-build.yml` runs the source checks, Android unit tests, lint, and builds an unsigned debug APK artifact. Android build and device testing must pass in GitHub Actions before installing for business use.

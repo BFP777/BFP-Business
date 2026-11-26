@@ -36,5 +36,5 @@ assert due(80000, 30000) == 50000
 assert 1000000 + 200000 - 50000 - 30000 == 1120000
 # Bank ₹20,000 + bank receipt ₹5,000 - bank payment ₹2,000 + cash deposit ₹3,000 - withdrawal ₹1,000 = ₹25,000.
 assert 2000000 + 500000 - 200000 + 300000 - 100000 == 2500000
-assert 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle
+assert 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle
 print('Development 82 payment, party ledger and cash/bank checks: PASS')

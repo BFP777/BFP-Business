@@ -124,22 +124,22 @@ class MainActivity : AppCompatActivity() {
     private fun base(title: String): LinearLayout {
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFFE4F3FF.toInt())
+            setBackgroundColor(0xFFF4F6FB.toInt())
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12)); setBackgroundColor(0xFFFFFFFF.toInt())
+            setPadding(dp(16), dp(12), dp(16), dp(12)); setBackgroundColor(0xFF10265B.toInt())
             elevation = dp(3).toFloat()
         }
         val mark = TextView(this).apply {
-            text = "B"; textSize = 19f; gravity = Gravity.CENTER
-            setTextColor(0xFFFFFFFF.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
-            background = rounded(0xFF202638.toInt(), 50); layoutParams = LinearLayout.LayoutParams(dp(42), dp(42))
+            text = "BFP"; textSize = 15f; gravity = Gravity.CENTER
+            setTextColor(0xFF10265B.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = rounded(0xFFFFFFFF.toInt(), 14); layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
         }
         header.addView(mark)
         header.addView(TextView(this).apply {
-            text = "BHAJAN FASHION POINT"; textSize = 17f; maxLines = 1
-            setTextColor(0xFF34394B.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
+            text = "BFP Business Pro\nB H A J A N   F A S H I O N"; textSize = 16f; maxLines = 2
+            setTextColor(0xFFFFFFFF.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
             setPadding(dp(12), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(headerIcon("♧") { showMenu() })
@@ -149,7 +149,7 @@ class MainActivity : AppCompatActivity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(14), dp(14), dp(18))
-            setBackgroundColor(0xFFE4F3FF.toInt())
+            setBackgroundColor(0xFFF4F6FB.toInt())
         }
         root.addView(TextView(this).apply {
             text = title; textSize = 20f; gravity = Gravity.START
@@ -162,12 +162,12 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             setBackgroundColor(0xFFFFFFFF.toInt()); elevation = dp(8).toFloat(); setPadding(dp(4), dp(7), dp(4), dp(7))
         }
-        listOf("⌂\nHOME / होम", "▥\nDASHBOARD / डैशबोर्ड", "◇\nITEMS / आइटम", "☰\nMENU / मेन्यू").forEachIndexed { index, label ->
+        listOf("⌂  HOME", "+  SALE", "▤  PURCHASE", "▦  REPORTS").forEachIndexed { index, label ->
             nav.addView(TextView(this).apply {
                 text = label; gravity = Gravity.CENTER; textSize = 12f
-                setTextColor(if ((title.startsWith("BHAJAN") && index == 0) || (title.contains("DASHBOARD") && index == 1) || (title.contains("ITEM") && index == 2) || (title.contains("MENU") && index == 3)) 0xFF0879C9.toInt() else 0xFF454958.toInt())
+                setTextColor(if ((index == 0 && (title == "HOME" || title == "DASHBOARD")) || (index == 1 && title.contains("SALE")) || (index == 2 && title.contains("PURCHASE")) || (index == 3 && title.contains("REPORT"))) 0xFF0879C9.toInt() else 0xFF454958.toInt())
                 typeface = android.graphics.Typeface.DEFAULT_BOLD; setPadding(0, dp(4), 0, dp(4))
-                setOnClickListener { when (index) { 0 -> showDashboard(); 1 -> showDashboardSummary(); 2 -> showItems(); 3 -> showMenu() } }
+                setOnClickListener { when (index) { 0 -> showDashboard(); 1 -> showInvoices("SALE"); 2 -> showInvoices("PURCHASE"); 3 -> showReports() } }
             }, LinearLayout.LayoutParams(0, dp(52), 1f))
         }
         shell.addView(nav)
@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity() {
         android.graphics.drawable.GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
 
     private fun headerIcon(symbol: String, action: () -> Unit) = TextView(this).apply {
-        text = symbol; textSize = 24f; gravity = Gravity.CENTER; setTextColor(0xFF626779.toInt())
+        text = symbol; textSize = 24f; gravity = Gravity.CENTER; setTextColor(0xFFFFFFFF.toInt())
         setPadding(dp(8), 0, dp(8), 0); setOnClickListener { action() }
     }
 
@@ -244,72 +244,92 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDashboardSummary() {
-        val page = base("BUSINESS DASHBOARD / बिजनेस डैशबोर्ड")
-        // Dev105: prominent receivable/payable overview cards at the top of Dashboard.
-        val outstandingRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        fun outstandingCard(title: String, subtitle: String, color: Int, action: () -> Unit) = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(12), dp(10), dp(12))
-            background = rounded(0xFFFFFFFF.toInt(), 18)
-            elevation = dp(2).toFloat()
-            addView(TextView(this@MainActivity).apply { text = title; textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(color) })
-            addView(TextView(this@MainActivity).apply { text = "₹ 0.00"; tag = "outstanding_amount"; textSize = 20f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF34394B.toInt()); setPadding(0, dp(7), 0, dp(3)) })
-            addView(TextView(this@MainActivity).apply { text = subtitle; textSize = 11f; setTextColor(0xFF777D8D.toInt()) })
+        val page = base("DASHBOARD")
+        page.setPadding(dp(12), dp(14), dp(12), dp(18))
+        val date = java.text.SimpleDateFormat("EEE, dd MMM yyyy", java.util.Locale("en", "IN")).format(java.util.Date())
+        val fyCalendar = java.util.Calendar.getInstance()
+        val fyStart = if (fyCalendar.get(java.util.Calendar.MONTH) >= 3) fyCalendar.get(java.util.Calendar.YEAR) else fyCalendar.get(java.util.Calendar.YEAR) - 1
+        page.addView(TextView(this).apply {
+            text = "$date     •     FY: $fyStart-${(fyStart + 1).toString().takeLast(2)}"
+            textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(0xFF42536A.toInt()); setPadding(dp(4), dp(4), dp(4), dp(12))
+        })
+
+        fun money(value: Long) = "₹ " + String.format(java.util.Locale("en", "IN"), "%,.0f", value / 100.0)
+        fun summaryCard(label: String, value: String, color: Int, action: () -> Unit): LinearLayout {
+            return LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(12), dp(10), dp(12)); background = rounded(color, 20)
+                elevation = dp(2).toFloat()
+                addView(TextView(this@MainActivity).apply {
+                    text = label; textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    setTextColor(0xFF243044.toInt())
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = value; tag = "dashboard_value"; textSize = 23f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF101B32.toInt())
+                    setPadding(0, dp(7), 0, 0)
+                })
+                setOnClickListener { action() }
+            }
+        }
+        val cards = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        page.addView(cards)
+        val sales = summaryCard("TOTAL SALES", "₹ 0", 0xFFDDF3E7.toInt()) { showInvoices("SALE") }
+        val purchases = summaryCard("TOTAL PURCHASE", "₹ 0", 0xFFFFE8E8.toInt()) { showInvoices("PURCHASE") }
+        val cash = summaryCard("CASH BALANCE", "₹ 0", 0xFFDDEEFF.toInt()) { showDayBook() }
+        val outstanding = summaryCard("OUTSTANDING", "₹ 0", 0xFFFFF0CC.toInt()) { showOutstandingParties(true) }
+        val debtors = summaryCard("DEBTORS  •  RECEIVABLE", "₹ 0", 0xFF13834F.toInt()) { showOutstandingParties(true) }
+        val creditors = summaryCard("CREDITORS  •  PAYABLE", "₹ 0", 0xFFC91F3C.toInt()) { showOutstandingParties(false) }
+        fun addPair(left: View, right: View) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            row.addView(left, LinearLayout.LayoutParams(0, dp(104), 1f).apply { setMargins(dp(3), dp(3), dp(5), dp(5)) })
+            row.addView(right, LinearLayout.LayoutParams(0, dp(104), 1f).apply { setMargins(dp(5), dp(3), dp(3), dp(5)) })
+            cards.addView(row)
+        }
+        addPair(sales, purchases); addPair(cash, outstanding); addPair(debtors, creditors)
+
+        val actionsTitle = TextView(this).apply {
+            text = "QUICK ACTIONS"; textSize = 17f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(0xFF1C2D4B.toInt()); setPadding(dp(4), dp(18), dp(4), dp(8))
+        }
+        page.addView(actionsTitle)
+        fun actionTile(label: String, symbol: String, color: Int, action: () -> Unit) = TextView(this).apply {
+            text = "$symbol\n$label"; gravity = Gravity.CENTER; textSize = 16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFFFFFFFF.toInt())
+            setPadding(dp(5), dp(10), dp(5), dp(10)); background = rounded(color, 20)
             setOnClickListener { action() }
         }
-        val getCard = outstandingCard("↙  YOU'LL GET / लेना है", "ग्राहकों से बकाया • Receivables", 0xFF159B72.toInt()) { showOutstandingParties(true) }
-        val giveCard = outstandingCard("↗  YOU'LL GIVE / देना है", "सप्लायरों को बकाया • Payables", 0xFFD95368.toInt()) { showOutstandingParties(false) }
-        outstandingRow.addView(getCard, LinearLayout.LayoutParams(0, dp(112), 1f).apply { setMargins(dp(2), dp(3), dp(5), dp(10)) })
-        outstandingRow.addView(giveCard, LinearLayout.LayoutParams(0, dp(112), 1f).apply { setMargins(dp(5), dp(3), dp(2), dp(10)) })
-        page.addView(outstandingRow)
-        lifecycleScope.launch {
-            try {
-                val balances = withContext(Dispatchers.IO) { ReportsRepository(db).partyBalances() }
-                (getCard.getChildAt(1) as TextView).text = "₹ ${String.format(java.util.Locale("en", "IN"), "%,.2f", balances.debtorsPaise / 100.0)}"
-                (giveCard.getChildAt(1) as TextView).text = "₹ ${String.format(java.util.Locale("en", "IN"), "%,.2f", balances.creditorsPaise / 100.0)}"
-            } catch (e: Exception) { toast(e.message ?: "बकाया राशि लोड नहीं हुई") }
-        }
-        val todayLabel = java.text.SimpleDateFormat("EEEE, dd MMM yyyy", java.util.Locale("en", "IN")).format(java.util.Date())
-        page.addView(TextView(this).apply { text = "आज का कारोबार / TODAY'S BUSINESS\n$todayLabel"; textSize = 14f; setTextColor(0xFF596174.toInt()); setPadding(dp(4), dp(4), dp(4), dp(12)) })
-        val startCal = java.util.Calendar.getInstance().apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }
-        val startMillis = startCal.timeInMillis
-        val endMillis = startMillis + 24L * 60L * 60L * 1000L
-        fun metric(label: String, amount: Long, color: Int, action: () -> Unit) = TextView(this).apply {
-            text = "$label\n₹${String.format(java.util.Locale("en", "IN"), "%,.2f", amount / 100.0)}"
-            textSize = 15f; gravity = Gravity.CENTER; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFFFFFFFF.toInt()); setPadding(dp(8), dp(15), dp(8), dp(15)); background = rounded(color, 16); setOnClickListener { action() }
-        }
-        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        page.addView(grid)
-        fun addMetricRow(left: View, right: View) {
+        fun addActionRow(a: View, b: View, c: View) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            val lp = LinearLayout.LayoutParams(0, dp(92), 1f).apply { setMargins(dp(3), dp(3), dp(3), dp(3)) }
-            row.addView(left, lp); row.addView(right, LinearLayout.LayoutParams(0, dp(92), 1f).apply { setMargins(dp(3), dp(3), dp(3), dp(3)) }); grid.addView(row)
+            listOf(a, b, c).forEach { view -> row.addView(view, LinearLayout.LayoutParams(0, dp(108), 1f).apply { setMargins(dp(3), dp(3), dp(3), dp(5)) }) }
+            page.addView(row)
         }
-        addMetricRow(metric("SALE / बिक्री", 0, 0xFF0879C9.toInt()) { showInvoices("SALE") }, metric("RECEIPTS / प्राप्तियाँ", 0, 0xFF168447.toInt()) { showPayments("IN") })
-        addMetricRow(metric("PURCHASE / खरीद", 0, 0xFF596174.toInt()) { showInvoices("PURCHASE") }, metric("EXPENSE / खर्च", 0, 0xFFC74646.toInt()) { showExpenses() })
-        page.addView(metric("EST. GROSS PROFIT / अनुमानित सकल मुनाफा", 0, 0xFF236B58.toInt()) { showProfitAndDeadStock() }, LinearLayout.LayoutParams(-1, dp(84)).apply { topMargin = dp(4); bottomMargin = dp(8) })
-        page.addView(TextView(this).apply { text = "ध्यान दें: प्राप्तियाँ बिक्री से अलग हैं। मुनाफा मौजूदा Item Master दरों पर अनुमान है; यह वास्तविक ऐतिहासिक लागत या नेट प्रॉफिट नहीं है।"; textSize = 12f; setTextColor(0xFF6C7180.toInt()); setPadding(dp(6), dp(8), dp(6), dp(12)) })
-        addAction(page, "SALE / बिक्री खोलें") { showInvoices("SALE") }
-        addAction(page, "PURCHASE / खरीद खोलें") { showInvoices("PURCHASE") }
-        addAction(page, "RECEIPTS / प्राप्तियाँ खोलें") { showPayments("IN") }
-        addAction(page, "EXPENSES / खर्च खोलें") { showExpenses() }
-        addAction(page, "DAY BOOK / रोज़नामचा") { showDayBook() }
-        addAction(page, "REPORTS / रिपोर्ट") { showReports() }
-        addAction(page, "BUSINESS TRENDS / कारोबार के ग्राफ") { showBusinessTrends() }
-        addAction(page, "AI DECISION ASSISTANT / AI निर्णय सहायक") { showAiDecisionAssistant() }
-        addAction(page, "AI BUSINESS INTELLIGENCE / AI कारोबार विश्लेषण") { showAiBusinessIntelligence() }
-        addAction(page, "AI DEMAND FORECAST / मांग का अनुमान") { showAiDemandForecast() }
-        addAction(page, "AI PROFIT & CASHFLOW ANALYSIS / मुनाफा और नकदी विश्लेषण") { showAiProfitCashflow() }
+        addActionRow(actionTile("NEW SALE", "+", 0xFF078342.toInt()) { showInvoices("SALE") }, actionTile("PURCHASE", "🛒", 0xFF1769BD.toInt()) { showInvoices("PURCHASE") }, actionTile("PAYMENT IN", "↓", 0xFF7138A5.toInt()) { showPayments("IN") })
+        addActionRow(actionTile("PAYMENT OUT", "↑", 0xFFD9364C.toInt()) { showPayments("OUT") }, actionTile("EXPENSE", "▤", 0xFFEF8B0B.toInt()) { showExpenses() }, actionTile("BANK", "▥", 0xFF008C8C.toInt()) { showBankManagement() })
+
+        val shortcuts = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        listOf("STOCK / ITEMS" to { showItems() }, "DAY BOOK" to { showDayBook() }, "REPORTS" to { showReports() }).forEach { (label, callback) ->
+            shortcuts.addView(TextView(this).apply {
+                text = label; gravity = Gravity.CENTER; textSize = 12f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(0xFF203A60.toInt()); setPadding(dp(3), dp(16), dp(3), dp(12)); setOnClickListener { callback() }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        page.addView(shortcuts)
+
         lifecycleScope.launch {
             try {
-                val totals = withContext(Dispatchers.IO) { db.dao().observeBusinessDashboard(startMillis, endMillis).first() }
-                (grid.getChildAt(0) as LinearLayout).let { (it.getChildAt(0) as TextView).text = "SALE / बिक्री\n₹${totals.salesPaise / 100.0}"; (it.getChildAt(1) as TextView).text = "RECEIPTS / प्राप्तियाँ\n₹${totals.receiptsPaise / 100.0}" }
-                (grid.getChildAt(1) as LinearLayout).let { (it.getChildAt(0) as TextView).text = "PURCHASE / खरीद\n₹${totals.purchasesPaise / 100.0}"; (it.getChildAt(1) as TextView).text = "EXPENSE / खर्च\n₹${totals.expensesPaise / 100.0}" }
-                (grid.getChildAt(2) as LinearLayout).let { (it.getChildAt(0) as TextView).text = "EST. GROSS PROFIT / अनुमानित सकल मुनाफा\n₹${totals.estimatedGrossProfitPaise / 100.0}" }
-
-            } catch (e: Exception) { toast(e.message ?: "Dashboard डेटा लोड नहीं हुआ") }
+                val now = System.currentTimeMillis()
+                val totals = withContext(Dispatchers.IO) { db.dao().observeBusinessDashboard(0L, now + 1L).first() }
+                val balances = withContext(Dispatchers.IO) { ReportsRepository(db).partyBalances() }
+                val cashBalance = withContext(Dispatchers.IO) { LedgerRepository(db).currentCashBalancePaise() }
+                (sales.getChildAt(1) as TextView).text = money(totals.salesPaise)
+                (purchases.getChildAt(1) as TextView).text = money(totals.purchasesPaise)
+                (cash.getChildAt(1) as TextView).text = money(cashBalance)
+                (outstanding.getChildAt(1) as TextView).text = money(balances.debtorsPaise + balances.creditorsPaise)
+                (debtors.getChildAt(1) as TextView).text = money(balances.debtorsPaise)
+                (creditors.getChildAt(1) as TextView).text = money(balances.creditorsPaise)
+            } catch (e: Exception) { toast(e.message ?: "Dashboard data could not be loaded") }
         }
     }
 
@@ -1082,279 +1102,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun partyDetailsBase(party: PartyEntity): LinearLayout {
-        val shell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(0xFFE4F3FF.toInt()) }
-        val toolbar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(10), dp(14), dp(10)); setBackgroundColor(0xFFFFFFFF.toInt()); elevation = dp(2).toFloat()
-        }
-        toolbar.addView(headerIcon("‹") { showParties() })
-        toolbar.addView(TextView(this).apply {
-            text = "Party Details"; textSize = 22f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFF303648.toInt())
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        toolbar.addView(headerIcon("✎") { partyDialog(party) })
-        toolbar.addView(headerIcon("⋮") {
-            AlertDialog.Builder(this).setItems(arrayOf("Edit Party", "Delete Party")) { _, which ->
-                if (which == 0) partyDialog(party) else confirmDeleteParty(party)
-            }.show()
-        })
-        shell.addView(toolbar)
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(14), dp(14), dp(18))
-            setBackgroundColor(0xFFE4F3FF.toInt())
-        }
-        shell.addView(ScrollView(this).apply { isFillViewport = true; addView(root) }, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(shell)
-        return root
-    }
-
     private fun showPartyLedger(party: PartyEntity) {
-        val page = partyDetailsBase(party)
-        val profile = sectionCard("")
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(TextView(this).apply {
-            text = if (party.partyType == "SUPPLIER") "Purchase Account" else "Cash Sale"
-            textSize = 15f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF303648.toInt())
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        val balanceLabel = TextView(this).apply {
-            text = "Balance Clear: ₹0.00"; textSize = 15f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF303648.toInt())
-        }
-        top.addView(balanceLabel)
-        profile.addView(top)
-        profile.addView(TextView(this).apply {
-            text = if (party.mobile.isBlank()) "Add Phone" else party.mobile
-            textSize = 15f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFF0879C9.toInt()); setPadding(0, dp(5), 0, dp(2)); setOnClickListener { partyDialog(party) }
-        })
-        val creditLimitPrefs = getSharedPreferences("bfp_party_credit_limits", MODE_PRIVATE)
-        val creditLimitLabel = TextView(this).apply {
-            textSize = 13f; setTextColor(0xFF0879C9.toInt())
-            setPadding(0, dp(4), 0, dp(4))
-            setOnClickListener {
-                val current = creditLimitPrefs.getLong(party.id.toString(), 0L)
-                val field = editField("Credit Limit (₹)", if (current > 0L) (current / 100.0).toString() else "")
-                field.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-                AlertDialog.Builder(this@MainActivity).setTitle("Set Credit Limit")
-                    .setView(field).setNegativeButton("Cancel", null)
-                    .setNeutralButton("Clear", null).setPositiveButton("Save", null).create().also { dlg ->
-                        dlg.setOnShowListener {
-                            dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                                creditLimitPrefs.edit().remove(party.id.toString()).apply()
-                                text = "Credit Limit: Not Set"; dlg.dismiss()
-                            }
-                            dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                                val parsed = field.text.toString().trim().toDoubleOrNull()
-                                if (parsed == null || parsed < 0.0) { field.error = "सही रकम दर्ज करें"; return@setOnClickListener }
-                                val paise = (parsed * 100.0).toLong()
-                                if (paise == 0L) creditLimitPrefs.edit().remove(party.id.toString()).apply()
-                                else creditLimitPrefs.edit().putLong(party.id.toString(), paise).apply()
-                                text = if (paise == 0L) "Credit Limit: Not Set" else "Credit Limit: ₹${paise / 100.0}"
-                                dlg.dismiss()
-                            }
-                        }
-                        dlg.show()
-                    }
-            }
-        }
-        fun refreshCreditLimit() {
-            val value = creditLimitPrefs.getLong(party.id.toString(), 0L)
-            creditLimitLabel.text = if (value > 0L) "Credit Limit: ₹${value / 100.0}  •  Edit" else "Credit Limit: Not Set  •  Set"
-        }
-        refreshCreditLimit()
-        profile.addView(creditLimitLabel)
-        val statement = Button(this).apply {
-            text = "Send Statement"; isAllCaps = false
-            setOnClickListener {
-                lifecycleScope.launch {
-                    try {
-                        val rows = withContext(Dispatchers.IO) { LedgerRepository(db).partyLedger(party.id) }
-                        val body = buildString {
-                            append("BFP Business Pro — Party Statement\n")
-                            append("Party: ${party.name}\nPhone: ${party.mobile}\n\n")
-                            rows.forEach { row ->
-                                val date = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("en", "IN")).format(java.util.Date(row.dateEpochMillis))
-                                append("$date | ${row.reference} | ${row.description} | Debit ₹${row.debitPaise / 100.0} | Credit ₹${row.creditPaise / 100.0} | Balance ₹${kotlin.math.abs(row.balancePaise) / 100.0}\n")
-                            }
-                        }
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"; putExtra(Intent.EXTRA_SUBJECT, "Statement - ${party.name}")
-                            putExtra(Intent.EXTRA_TEXT, body)
-                        }
-                        startActivity(Intent.createChooser(send, "Send Statement"))
-                    } catch (e: Exception) { toast(e.message ?: "Statement share नहीं हो सका") }
-                }
-            }
-        }
-        val communication = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        communication.addView(Button(this).apply {
-            text = "Send Reminder"; isAllCaps = false; textSize = 12f
-            setOnClickListener {
-                val message = "Hello ${party.name}, this is a payment reminder from BHAJAN FASHION POINT. Please check your account statement."
-                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, message) }
-                startActivity(Intent.createChooser(send, "Send Reminder"))
-            }
-        }, LinearLayout.LayoutParams(0, dp(44), 1f))
-        communication.addView(statement, LinearLayout.LayoutParams(0, dp(44), 1f))
-        profile.addView(communication)
-        page.addView(profile)
-
-        val search = EditText(this).apply {
-            hint = "Search Transactions"; setSingleLine(true)
-            setPadding(dp(14), dp(8), dp(14), dp(8)); background = rounded(0xFFFFFFFF.toInt(), 12)
-        }
-        page.addView(search, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(10); bottomMargin = dp(8) })
-        val transactions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        page.addView(transactions)
-        var ledgerRows: List<LedgerRepository.LedgerRow> = emptyList()
-        var partyInvoices: List<InvoiceEntity> = emptyList()
-        fun renderTransactions() {
-            transactions.removeAllViews()
-            val query = search.text.toString().trim().lowercase()
-            val filtered = ledgerRows.filter { query.isBlank() || "${it.reference} ${it.description}".lowercase().contains(query) }
-            if (filtered.isEmpty()) transactions.addView(emptyLabel(if (ledgerRows.isEmpty()) "No transactions yet" else "No matching transactions"))
-            filtered.asReversed().forEach { row ->
-                val date = java.text.SimpleDateFormat("dd MMM yy • hh:mm a", java.util.Locale("en", "IN")).format(java.util.Date(row.dateEpochMillis))
-                val amount = if (row.debitPaise > 0) row.debitPaise else row.creditPaise
-                val paid = row.balancePaise == 0L
-                val card = sectionCard(row.description.ifBlank { "Transaction" })
-                card.addView(TextView(this).apply {
-                    text = "${row.reference}     $date"; textSize = 12f; setTextColor(0xFF85899B.toInt())
-                    setPadding(0, dp(4), 0, dp(6))
-                })
-                card.addView(TextView(this).apply {
-                    text = (if (paid) "PAID" else "BALANCE DUE") + "     Total: ₹${kotlin.math.abs(amount) / 100.0}     Balance: ₹${kotlin.math.abs(row.balancePaise) / 100.0}"
-                    textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    setTextColor(if (paid) 0xFF159B72.toInt() else 0xFF303648.toInt())
-                })
-                val invoice = partyInvoices.firstOrNull { it.invoiceNumber == row.reference }
-                if (invoice != null) {
-                    card.setOnClickListener {
-                        AlertDialog.Builder(this@MainActivity).setTitle(invoice.invoiceNumber)
-                            .setItems(arrayOf("PDF / Print", "Share Details")) { _, which ->
-                                if (which == 0) lifecycleScope.launch { printInvoice(invoice) }
-                                else {
-                                    val shareText = "BFP Business Pro\n${party.name}\n${invoice.kind} ${invoice.invoiceNumber}\nTotal: ₹${invoice.totalPaise / 100.0}\nPaid: ₹${invoice.paidPaise / 100.0}\nBalance: ₹${(invoice.totalPaise - invoice.paidPaise) / 100.0}"
-                                    val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
-                                    startActivity(Intent.createChooser(send, "Share Transaction"))
-                                }
-                            }.show()
-                    }
-                }
-                transactions.addView(card)
-            }
-        }
-        search.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { renderTransactions() }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
-            setPadding(dp(3), dp(6), dp(3), dp(6)); setBackgroundColor(0xFFFFFFFF.toInt()); elevation = dp(7).toFloat()
-        }
-        fun partyAction(label: String, color: Int, action: () -> Unit) = Button(this).apply {
-            text = label; isAllCaps = false; textSize = 12f; setTextColor(0xFFFFFFFF.toInt())
-            backgroundTintList = android.content.res.ColorStateList.valueOf(color); setOnClickListener { action() }
-        }
-        val supplier = party.partyType == "SUPPLIER"
-        actions.addView(partyAction(if (supplier) "Make Pay…" else "Take Pay…", 0xFF0879C9.toInt()) {
-            paymentDialog(if (supplier) "OUT" else "IN", null, party.id)
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        actions.addView(partyAction("+", 0xFF0879C9.toInt()) {
-            if (supplier) {
-                AlertDialog.Builder(this).setTitle("Add Purchase")
-                    .setItems(arrayOf("Item-wise Purchase — Add Stock", "Simple Purchase — No Stock")) { _, which ->
-                        if (which == 0) invoiceDialog("PURCHASE", null, preselectedPartyId = party.id)
-                        else simplePurchaseDialog(party.id)
-                    }.show()
-            } else invoiceDialog("SALE", null, preselectedPartyId = party.id)
-        }, LinearLayout.LayoutParams(dp(58), dp(48)))
-        actions.addView(partyAction(if (supplier) "Add Purchase" else "Add Sale", 0xFFE51D43.toInt()) {
-            if (supplier) choosePurchaseEntryMode(party.id)
-            else invoiceDialog("SALE", null, preselectedPartyId = party.id)
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        page.addView(actions)
-        // Move party actions outside the scroll area so they remain pinned at the bottom.
-        val partyScroll = page.parent as? ScrollView
-        val partyShell = partyScroll?.parent as? LinearLayout
-        if (partyScroll != null && partyShell != null) {
-            page.removeView(actions)
-            partyShell.addView(actions, LinearLayout.LayoutParams(-1, -2))
-        }
-
+        val page = base("पार्टी खाता — ${party.name}")
+        addAction(page, "← पार्टियाँ") { showParties() }
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        page.addView(list)
         lifecycleScope.launch {
             try {
                 val repository = LedgerRepository(db)
                 val audit = withContext(Dispatchers.IO) { repository.auditPartyLedger(party.id) }
-                ledgerRows = withContext(Dispatchers.IO) { repository.partyLedger(party.id) }
-                partyInvoices = withContext(Dispatchers.IO) {
-                    (db.dao().observeInvoices("SALE").first() + db.dao().observeInvoices("PURCHASE").first())
-                        .filter { it.partyId == party.id }
+                val rows = withContext(Dispatchers.IO) { repository.partyLedger(party.id) }
+                list.removeAllViews()
+                val auditStatus = if (audit.issues.isEmpty()) "मिलान ठीक — कोई विसंगति नहीं मिली" else "जाँच आवश्यक — ${audit.issues.size} मुद्दे"
+                list.addView(card("LEDGER AUDIT / खाता मिलान\nबिल: ${audit.invoiceCount}  |  कुल बिल: ₹${audit.invoiceTotalPaise / 100.0}\nबिल से जुड़े भुगतान: ₹${audit.linkedPaymentPaise / 100.0}\nबिना बिल प्राप्त राशि: ₹${audit.unallocatedReceiptPaise / 100.0}\nबिना बिल किया भुगतान: ₹${audit.unallocatedPaymentPaise / 100.0}\nPaid mismatch: ${audit.storedPaidMismatchCount}  |  गलत लिंक: ${audit.invalidLinkCount}\n$auditStatus").apply { setTextColor(if (audit.issues.isEmpty()) 0xFF2E8B57.toInt() else 0xFFC74646.toInt()) })
+                audit.issues.forEach { issue -> list.addView(card("⚠ $issue")) }
+                if (rows.isEmpty()) list.addView(emptyLabel("इस पार्टी का अभी कोई लेन-देन नहीं है"))
+                rows.forEach { row ->
+                    val date = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale("en", "IN")).format(java.util.Date(row.dateEpochMillis))
+                    val due = if (row.balancePaise >= 0) "लेना है" else "देना है"
+                    val color = if (row.balancePaise >= 0) 0xFF2E8B57.toInt() else 0xFFC74646.toInt()
+                    list.addView(card("$date  |  ${row.reference}\n${row.description}\nDebit: ₹${row.debitPaise / 100.0}  |  Credit: ₹${row.creditPaise / 100.0}\n$due: ₹${kotlin.math.abs(row.balancePaise) / 100.0}").apply { setTextColor(color) })
                 }
-                val closing = ledgerRows.lastOrNull()?.balancePaise ?: 0L
-                balanceLabel.text = (if (closing == 0L) "Balance Clear: " else "Balance: ") + "₹${kotlin.math.abs(closing) / 100.0}  " + when {
-                    closing == 0L -> "Clear"
-                    closing > 0L -> if (supplier) "Advance / Credit" else "Due from Customer"
-                    else -> if (supplier) "Payable to Supplier" else "Advance Received"
-                }
-                if (audit.issues.isNotEmpty()) transactions.addView(TextView(this@MainActivity).apply {
-                    text = "Ledger check: ${audit.issues.size} issue(s) need review"
-                    setTextColor(0xFFC74646.toInt()); textSize = 12f
-                }, 0)
-                renderTransactions()
-            } catch (e: Exception) { toast(e.message ?: "Party Details लोड नहीं हुए") }
+                val balance = rows.lastOrNull()?.balancePaise ?: 0L
+                list.addView(card("अंतिम बकाया: ₹${kotlin.math.abs(balance) / 100.0} — ${if (balance >= 0) "आपको लेना है" else "आपको देना है"}"))
+            } catch (e: Exception) { toast(e.message ?: "खाता लोड नहीं हुआ") }
         }
-    }
-
-
-    private fun choosePurchaseEntryMode(partyId: Long) {
-        AlertDialog.Builder(this).setTitle("Purchase Entry Type")
-            .setItems(arrayOf("Simple Purchase — No Stock", "Item-wise Purchase — Add Stock")) { _, which ->
-                if (which == 0) simplePurchaseDialog(partyId)
-                else invoiceDialog("PURCHASE", null, preselectedPartyId = partyId)
-            }.show()
-    }
-
-    /** Posts a supplier purchase total without creating item rows or changing inventory. */
-    private fun simplePurchaseDialog(partyId: Long) {
-        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
-        val amount = editField("Purchase Amount (₹)", "")
-        amount.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-        val reference = editField("Supplier Bill / Reference (optional)", "")
-        val note = editField("Description / Note (optional)", "Simple purchase — no stock")
-        box.addView(TextView(this).apply { text = "यह एंट्री केवल सप्लायर का कुल अमाउंट दर्ज करेगी। कोई आइटम या स्टॉक नहीं बढ़ेगा।"; textSize = 14f; setTextColor(0xFF455A64.toInt()); setPadding(0, 0, 0, dp(8)) })
-        box.addView(amount); box.addView(reference); box.addView(note)
-        val dialog = AlertDialog.Builder(this).setTitle("Simple Purchase — No Stock")
-            .setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save Purchase", null).create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val value = amount.text.toString().trim().toDoubleOrNull()
-                if (value == null || value <= 0.0) { amount.error = "सही रकम दर्ज करें"; return@setOnClickListener }
-                val refText = reference.text.toString().trim()
-                val noteText = note.text.toString().trim()
-                lifecycleScope.launch {
-                    try {
-                        withContext(Dispatchers.IO) {
-                            val supplier = db.dao().getParty(partyId) ?: error("Supplier not found")
-                            require(supplier.partyType == "SUPPLIER" || supplier.partyType == "BOTH") { "चुनी गई पार्टी सप्लायर नहीं है" }
-                            val paise = (value * 100.0).toLong()
-                            val number = refText.ifBlank { "SP-${System.currentTimeMillis()}" }
-                            db.dao().insertInvoice(InvoiceEntity(
-                                invoiceNumber = number, partyId = partyId, kind = "PURCHASE",
-                                dateEpochMillis = System.currentTimeMillis(), subtotalPaise = paise,
-                                totalPaise = paise, paidPaise = 0L,
-                                note = listOf("SIMPLE_PURCHASE_NO_STOCK", noteText).filter { it.isNotBlank() }.joinToString(" | ")
-                            ))
-                        }
-                        dialog.dismiss(); toast("Simple Purchase सेव हो गई — Stock में कोई बदलाव नहीं हुआ")
-                        db.dao().getParty(partyId)?.let { showPartyLedger(it) }
-                    } catch (e: Exception) { toast(e.message ?: "Purchase सेव नहीं हुई") }
-                }
-            }
-        }
-        dialog.show()
     }
 
     private fun showDayBook() {
@@ -2589,7 +2361,7 @@ class MainActivity : AppCompatActivity() {
                         AlertDialog.Builder(this@MainActivity).setItems(arrayOf("PDF / Print", "Edit", "Delete")) { _, which ->
                             if (which == 0) lifecycleScope.launch { printInvoice(invoice) }
                             else if (which == 1) lifecycleScope.launch { val lines = withContext(Dispatchers.IO) { db.dao().getInvoiceLines(invoice.id) }; invoiceDialog(kind, invoice, lines) }
-                            else AlertDialog.Builder(this@MainActivity).setMessage("यह बिल हट जाएगा। जुड़े भुगतान पहले हटाने होंगे।").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ -> lifecycleScope.launch(Dispatchers.IO) { try { InvoiceRepository(db).delete(invoice.id); if (invoice.attachmentPath.isNotBlank()) resolvePurchaseAttachment(invoice.attachmentPath).delete(); withContext(Dispatchers.Main) { toast("बिल हटाया गया") } } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल हटाया नहीं जा सका") } } } }.show()
+                            else AlertDialog.Builder(this@MainActivity).setMessage("यह पूरा बिल और इससे जुड़े सभी भुगतान एक साथ हटेंगे। संबंधित कैश/बैंक और पार्टी लेजर एंट्री भी हटेगी तथा स्टॉक समायोजित होगा। बिना बिल से जुड़े अन्य भुगतान सुरक्षित रहेंगे। क्या आप जारी रखना चाहते हैं?").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ -> lifecycleScope.launch(Dispatchers.IO) { try { InvoiceRepository(db).delete(invoice.id); if (invoice.attachmentPath.isNotBlank()) resolvePurchaseAttachment(invoice.attachmentPath).delete(); withContext(Dispatchers.Main) { toast("बिल हटाया गया") } } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल हटाया नहीं जा सका") } } } }.show()
                         }.show()
                     }
                 }

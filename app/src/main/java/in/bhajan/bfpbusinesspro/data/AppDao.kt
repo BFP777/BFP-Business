@@ -139,6 +139,7 @@ interface AppDao {
     @Query("SELECT COALESCE(SUM(amountPaise),0) FROM payments WHERE invoiceId = :invoiceId") suspend fun sumInvoicePayments(invoiceId: Long): Long
     @Query("SELECT * FROM payments ORDER BY dateEpochMillis DESC, id DESC") fun observePayments(): Flow<List<PaymentEntity>>
     @Query("SELECT COUNT(*) FROM payments WHERE invoiceId = :invoiceId") suspend fun countPaymentsForInvoice(invoiceId: Long): Int
+    @Query("DELETE FROM payments WHERE invoiceId = :invoiceId") suspend fun deleteInvoicePayments(invoiceId: Long): Int
     @Insert suspend fun insertCashEntry(value: CashEntryEntity): Long
     @Update suspend fun updateCashEntry(value: CashEntryEntity)
     @Delete suspend fun deleteCashEntry(value: CashEntryEntity)

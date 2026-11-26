@@ -141,8 +141,11 @@ class InvoiceRepository(private val database: BfpDatabase) {
 
     suspend fun delete(invoiceId: Long) = database.withTransaction {
         val invoice = dao.getInvoice(invoiceId) ?: return@withTransaction
-        val linkedPayments = dao.countPaymentsForInvoice(invoiceId)
-        require(linkedPayments == 0) { "इस बिल से भुगतान जुड़े हैं। पहले भुगतान हटाएँ या अलग करें।" }
+        // A whole-bill delete also removes every payment allocated to that bill.
+        // Payments are the source of truth for cash/bank balances and party ledgers,
+        // so deleting these rows in the same Room transaction reverses those postings
+        // atomically. Unlinked party receipts/payments are deliberately untouched.
+        dao.deleteInvoicePayments(invoiceId)
         val lines = dao.getInvoiceLines(invoiceId)
         reverseStock(invoice.kind, lines, invoice.invoiceNumber, invoice.dateEpochMillis)
         dao.deleteInvoiceLines(invoiceId)

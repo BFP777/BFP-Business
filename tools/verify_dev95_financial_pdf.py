@@ -9,7 +9,7 @@ checks = {
     "PDF includes period and P&L values": 'PROFIT & LOSS (MANAGEMENT ESTIMATE)' in main and 'Estimated operating surplus:' in main and 'Period:' in main,
     "financial position snapshot is explicitly distinguished from historical period end": 'आज के snapshot' in main and 'not period-end historical balances' in main,
     "management estimate and costing limitations disclosed": 'not a certified statutory P&L or legal Balance Sheet' in main and 'current Item Master purchase rates' in main,
-    "version 5.43.0 / 540": 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    "version 5.43.0 / 540": 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle,
     "Room schema remains version 10": 'version = 10' in db,
 }
 for name, ok in checks.items(): print(("PASS" if ok else "FAIL") + ": " + name)

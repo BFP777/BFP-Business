@@ -13,7 +13,7 @@ checks={
 "absolute and percentage rate increase displayed":"बढ़ोतरी:" in main and "previousRatePaise" in main,
 "no automatic accounting changes stated":"कोई बिक्री, खरीद, स्टॉक, भुगतान या अकाउंटिंग एंट्री नहीं बदली जाएगी" in main,
 "existing read-only queries and unchanged schema":"observeItemPerformance(cutoff)" in main and "observeSupplierItemRateChanges()" in main and "version = 10" in db,
-"version 5.16.0 code 516":"versionCode = 552" in gradle and "versionName = \"5.52.0\"" in gradle,
+"version 5.16.0 code 516":"versionCode = 557" in gradle and "versionName = \"5.57.0\"" in gradle,
 }
 for k,v in checks.items():print(("PASS" if v else "FAIL")+": "+k)
 assert all(checks.values()),"Dev61 checks failed"

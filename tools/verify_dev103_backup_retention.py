@@ -5,7 +5,7 @@ manager = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/backup/CloudBackup
 main = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt").read_text()
 db = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt").read_text()
 checks = {
-    "version 5.49.0 / 549": 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    "version 5.49.0 / 549": 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle,
     "Room schema unchanged": "version = 10" in db,
     "storage summary counts recognized backups": "fun storageSummary" in manager and "backupCount = backups.size" in manager,
     "storage usage totals BFP backup sizes": "backups.sumOf { it.bytes.coerceAtLeast(0L) }" in manager,

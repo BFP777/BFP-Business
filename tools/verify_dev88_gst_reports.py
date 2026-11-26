@@ -10,7 +10,7 @@ checks = {
     'GST tax components aggregated independently': all(x in dao for x in ['SUM(il.taxablePaise)', 'SUM(il.cgstPaise)', 'SUM(il.sgstPaise)', 'SUM(il.igstPaise)']),
     'sales and purchase GST remain separate': "i.kind IN ('SALE','PURCHASE')" in dao and 'SALES GST' in activity and 'PURCHASE GST' in activity,
     'date-range GST report UI': 'private fun showGstReport()' in activity and 'GST / Tax Report' in activity,
-    'version 5.43.0 / 533': 'versionCode = 552' in gradle and 'versionName = "5.52.0"' in gradle,
+    'version 5.43.0 / 533': 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle,
 }
 for name, ok in checks.items(): print(('PASS' if ok else 'FAIL') + ': ' + name)
 assert all(checks.values())

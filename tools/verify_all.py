@@ -115,3 +115,6 @@ subprocess.run([sys.executable, str(ROOT / "tools/verify_dev104_backup_encryptio
 
 # Dev105 dashboard outstanding summary cards
 subprocess.run([sys.executable, str(ROOT / "tools/verify_dev105_dashboard_outstanding.py")], cwd=ROOT, check=True)
+
+# DEV112: atomic whole-invoice delete including linked payments and stock reversal.
+subprocess.run([sys.executable, str(ROOT / "tools/verify_dev112_whole_invoice_delete.py")], cwd=ROOT, check=True)
