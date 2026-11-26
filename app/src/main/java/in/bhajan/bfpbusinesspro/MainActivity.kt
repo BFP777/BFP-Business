@@ -270,6 +270,21 @@ class MainActivity : AppCompatActivity() {
         }
         page.addView(shortcuts)
 
+        val viewBillsButton = TextView(this).apply {
+            text = "▤   VIEW SAVED BILLS"
+            gravity = Gravity.CENTER
+            textSize = 16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(dp(12), dp(15), dp(12), dp(15))
+            background = rounded(0xFF17345F.toInt(), 16)
+            elevation = dp(2).toFloat()
+            setOnClickListener { showInvoices("SALE") }
+        }
+        page.addView(viewBillsButton, LinearLayout.LayoutParams(-1, -2).apply {
+            setMargins(dp(3), dp(5), dp(3), dp(12))
+        })
+
         lifecycleScope.launch {
             try {
                 val now = System.currentTimeMillis()
@@ -2314,6 +2329,59 @@ class MainActivity : AppCompatActivity() {
                     val party = withContext(Dispatchers.IO) { db.dao().observeParties().first().firstOrNull { it.id == invoice.partyId }?.name ?: "पार्टी #${invoice.partyId}" }
                     val row = card("बिल: ${invoice.invoiceNumber}\nपार्टी: $party\nतारीख: ${java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale("hi", "IN")).format(java.util.Date(invoice.dateEpochMillis))}\nकुल: ₹${invoice.totalPaise / 100.0}  |  भुगतान: ₹${invoice.paidPaise / 100.0}")
                     list.addView(row)
+                    row.isClickable = true
+                    row.setOnClickListener {
+                        lifecycleScope.launch {
+                            try {
+                                val detail = withContext(Dispatchers.IO) {
+                                    val selectedParty = db.dao().observeParties().first()
+                                        .firstOrNull { it.id == invoice.partyId }
+                                    val selectedLines = db.dao().getInvoiceLines(invoice.id)
+                                    selectedParty to selectedLines
+                                }
+                                val selectedParty = detail.first
+                                val selectedLines = detail.second
+                                val dateText = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("en", "IN"))
+                                    .format(java.util.Date(invoice.dateEpochMillis))
+                                val detailText = buildString {
+                                    append("Bill No: ${invoice.invoiceNumber}\\n")
+                                    append("Date: $dateText\\n")
+                                    append("Customer: ${selectedParty?.name ?: party}\\n")
+                                    if (!selectedParty?.mobile.isNullOrBlank()) append("Mobile: ${selectedParty?.mobile}\\n")
+                                    append("\\nITEM DETAILS\\n")
+                                    selectedLines.forEachIndexed { index, line ->
+                                        append("${index + 1}. ${line.itemNameSnapshot}\\n")
+                                        append("   Qty: ${line.quantity}   Rate: ₹${line.ratePaise / 100.0}\\n")
+                                        append("   Amount: ₹${line.taxablePaise / 100.0}\\n")
+                                    }
+                                    append("\\nSubtotal: ₹${invoice.subtotalPaise / 100.0}\\n")
+                                    append("Discount: ₹${invoice.discountPaise / 100.0}\\n")
+                                    append("GST: ₹${(invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise) / 100.0}\\n")
+                                    append("TOTAL: ₹${invoice.totalPaise / 100.0}\\n")
+                                    append("Paid: ₹${invoice.paidPaise / 100.0}\\n")
+                                    append("Balance: ₹${(invoice.totalPaise - invoice.paidPaise) / 100.0}\\n")
+                                    if (invoice.note.isNotBlank()) append("\\nNote: ${invoice.note}")
+                                }
+                                val detailView = TextView(this@MainActivity).apply {
+                                    text = detailText
+                                    textSize = 15f
+                                    setTextColor(0xFF243044.toInt())
+                                    setPadding(dp(18), dp(12), dp(18), dp(12))
+                                }
+                                val scroll = ScrollView(this@MainActivity).apply { addView(detailView) }
+                                AlertDialog.Builder(this@MainActivity)
+                                    .setTitle("BILL DETAILS")
+                                    .setView(scroll)
+                                    .setPositiveButton("PDF / PRINT") { _, _ ->
+                                        lifecycleScope.launch { printInvoice(invoice) }
+                                    }
+                                    .setNegativeButton("CLOSE", null)
+                                    .show()
+                            } catch (e: Exception) {
+                                toast(e.message ?: "Could not open bill details")
+                            }
+                        }
+                    }
                     addAction(list, "${invoice.invoiceNumber} — Edit / Delete", 0xFF607D8B.toInt()) {
                         AlertDialog.Builder(this@MainActivity).setItems(arrayOf("PDF / Print", "Edit", "Delete")) { _, which ->
                             if (which == 0) lifecycleScope.launch { printInvoice(invoice) }
