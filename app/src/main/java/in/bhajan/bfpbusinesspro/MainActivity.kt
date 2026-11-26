@@ -2710,8 +2710,9 @@ class MainActivity : AppCompatActivity() {
                                         .setMessage("${row.name.text} हटाएँ?")
                                         .setNegativeButton("रद्द", null)
                                         .setPositiveButton("हटाएँ") { _, _ ->
+                                            val rowIndex = rows.indexOf(row)
                                             rows.remove(row)
-                                            linesBox.removeView(container)
+                                            if (rowIndex >= 0) linesBox.removeViewAt(rowIndex)
                                             refreshItemCount()
                                             rows.forEachIndexed { i, r ->
                                                 r.summary?.text = r.summary?.text?.toString()
