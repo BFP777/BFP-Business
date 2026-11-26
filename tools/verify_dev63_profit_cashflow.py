@@ -17,7 +17,7 @@ checks={
 "margin is calculated against sales revenue":"estimatedGrossProfitPaise.toDouble() * 100.0 / row.salesPaise" in main,
 "limits and non-posting disclaimer shown":"कोई एंट्री पोस्ट या बैलेंस नहीं बदलती" in main,
 "database schema remains unchanged":"version = 10" in db,
-"app version advanced to 5.23.0 / 522":'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle,
+"app version advanced to 5.23.0 / 522":'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
 }
 for k,v in checks.items(): print(("PASS" if v else "FAIL")+": "+k)
 assert all(checks.values()),"Dev63 checks failed"

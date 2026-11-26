@@ -6,8 +6,8 @@ checks = {
     "item row quantity and rate use separate lines": 'मात्रा (Qty): $q     रेट (Rate):' in main,
     "edited row uses separate quantity and rate lines": 'मात्रा (Qty): ${q}     रेट (Rate):' in main,
     "voice confirmation reports parsed quantity and rate": 'मात्रा ${parsed.second ?: "1"} | रेट ₹${parsed.third}' in main,
-    "version code is 555": "versionCode = 557" in gradle,
-    "version name is 5.55.0": 'versionName = "5.57.0"' in gradle,
+    "version code is 555": "versionCode = 555" in gradle,
+    "version name is 5.55.0": 'versionName = "5.55.0"' in gradle,
 }
 for label, passed in checks.items(): print(("PASS" if passed else "FAIL") + ": " + label)
 if not all(checks.values()): raise SystemExit(1)

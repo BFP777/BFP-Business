@@ -13,7 +13,7 @@ checks = {
     'payable tile is red': 'देनदारी / PAYABLES' in main and '0xFFC93636.toInt()' in main,
     'report receivable/payable cards have green/red backgrounds': 'background = rounded(0xFF168447.toInt(), 14)' in main and 'background = rounded(0xFFC93636.toInt(), 14)' in main,
     'receivable/payable amounts use existing accounting balances': 'balances.debtorsPaise' in main and 'balances.creditorsPaise' in main,
-    'version advanced without database migration': 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle and 'Room schema: 9 (no database migration required)' in notes,
+    'version advanced without database migration': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle and 'Room schema: 9 (no database migration required)' in notes,
 }
 for label, ok in checks.items(): print(('PASS' if ok else 'FAIL') + ': ' + label)
 if not all(checks.values()): raise SystemExit(1)

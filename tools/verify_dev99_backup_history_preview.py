@@ -6,7 +6,7 @@ backup = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/DatabaseBack
 history = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/BackupHistory.kt').read_text()
 worker = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/AutoBackupWorker.kt').read_text()
 checks = {
-    'version 5.44.0 / 544': 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle,
+    'version 5.44.0 / 544': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
     'backup history bounded to 20 records': 'minOf(old.length(), 19)' in history,
     'backup history shows newest records': 'Backup History (नवीनतम 10)' in history,
     'manual backup success/failure recorded': 'BackupHistory.record(this, "Manual"' in main,

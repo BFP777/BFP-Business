@@ -16,7 +16,7 @@ checks = {
     "new receipt preselects the current customer": 'paymentDialog("IN", null, preselectedPartyId = partyId)' in main,
     "entry forms support preselected party without changing existing callers": 'preselectedPartyId: Long? = null' in main and 'existing?.partyId ?: preselectedPartyId' in main,
     "existing WhatsApp remains manual draft": 'openWhatsAppDraft(customerMobile, offerText)' in main and 'https://wa.me/$digits?text=${Uri.encode(message)}' in main,
-    "version advanced without Room schema migration": 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle and 'Room schema: 9 (no database migration required)' in notes,
+    "version advanced without Room schema migration": 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle and 'Room schema: 9 (no database migration required)' in notes,
 }
 # Fixture-level semantics: same customer, same data stores; separate sale invoices and incoming receipts.
 db = sqlite3.connect(":memory:")

@@ -7,7 +7,7 @@ menu = main[start:end]
 checks = {
     "dashboard and billing entries": "Dashboard" in menu and "New Sale (Billing)" in menu,
     "business actions": all(x in menu for x in ["Purchase", "Payment In", "Payment Out", "Expenses", "Bank / बैंक", "Day Book"]),
-    "separate parties and stock": all(x in menu for x in ["Debtors / Customers", "Stock / Items", "Debtors", "Creditors"]) and "Parties (Customers & Suppliers)" not in menu,
+    "parties and stock": all(x in menu for x in ["Parties (Customers & Suppliers)", "Stock / Items", "Debtors", "Creditors"]),
     "reports and backup": all(x in menu for x in ["Reports", "Business Trends", "Backup & Restore"]),
     "settings retained": all(x in menu for x in ["GST Settings", "Voice Input Language", "Display Language: English"]),
 }

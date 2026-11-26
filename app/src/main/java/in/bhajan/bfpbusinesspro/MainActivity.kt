@@ -96,10 +96,42 @@ class MainActivity : AppCompatActivity() {
         if (uri != null) lifecycleScope.launch { try { withContext(Dispatchers.IO) { contentResolver.openOutputStream(uri)?.use { it.write(pendingReportBytes) } ?: error("फाइल नहीं खुली") }; toast("PDF रिपोर्ट सेव हो गई") } catch (e: Exception) { toast("Export असफल: ${e.message}") } }
     }
     private var pendingPurchaseAttachmentPath: String = ""
+    private var pendingCameraAttachmentFile: File? = null
     private var editingOriginalAttachmentPath: String = ""
     private var purchaseAttachmentStatusView: TextView? = null
     private var purchaseAttachmentButtonView: Button? = null
     private var purchaseAttachmentOpenButtonView: Button? = null
+    private val capturePurchaseBillPhoto = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val captured = pendingCameraAttachmentFile
+        pendingCameraAttachmentFile = null
+        if (success && captured != null && captured.isFile && captured.length() > 0L) {
+            val previous = pendingPurchaseAttachmentPath
+            pendingPurchaseAttachmentPath = captured.relativeTo(filesDir).invariantSeparatorsPath
+            purchaseAttachmentStatusView?.text = "कैमरे से फोटो अटैच: ${captured.name}"
+            purchaseAttachmentButtonView?.text = "दूसरी फोटो / PDF चुनें"
+            purchaseAttachmentOpenButtonView?.visibility = View.VISIBLE
+            if (previous.isNotBlank() && previous != editingOriginalAttachmentPath) {
+                lifecycleScope.launch(Dispatchers.IO) { resolvePurchaseAttachment(previous).delete() }
+            }
+            toast("सप्लायर बिल की फोटो सेव हो गई")
+        } else {
+            captured?.delete()
+            if (success) toast("फोटो सेव नहीं हो सकी")
+        }
+    }
+    private fun takePurchaseBillPhoto() {
+        try {
+            val directory = File(filesDir, "purchase_attachments").apply { if (!exists()) mkdirs() }
+            val photo = File(directory, "supplier-camera-${UUID.randomUUID()}.jpg")
+            pendingCameraAttachmentFile = photo
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", photo)
+            capturePurchaseBillPhoto.launch(uri)
+        } catch (e: Exception) {
+            pendingCameraAttachmentFile?.delete()
+            pendingCameraAttachmentFile = null
+            toast(e.message ?: "कैमरा शुरू नहीं हो सका")
+        }
+    }
     private val choosePurchaseAttachment = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) lifecycleScope.launch {
             try {
@@ -118,27 +150,27 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         db = BfpDatabase.get(this)
-        showDashboardSummary()
+        showDashboard()
     }
 
     private fun base(title: String): LinearLayout {
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFFF4F6FB.toInt())
+            setBackgroundColor(0xFFF4F6FA.toInt())
         }
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12)); setBackgroundColor(0xFF10265B.toInt())
+            setPadding(dp(16), dp(12), dp(16), dp(12)); setBackgroundColor(0xFF071F55.toInt())
             elevation = dp(3).toFloat()
         }
         val mark = TextView(this).apply {
-            text = "BFP"; textSize = 15f; gravity = Gravity.CENTER
-            setTextColor(0xFF10265B.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
-            background = rounded(0xFFFFFFFF.toInt(), 14); layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
+            text = "BFP"; textSize = 16f; gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = rounded(0xFFFFFFFF.toInt(), 9); setTextColor(0xFF071F55.toInt()); layoutParams = LinearLayout.LayoutParams(dp(48), dp(42))
         }
         header.addView(mark)
         header.addView(TextView(this).apply {
-            text = "BFP Business Pro\nB H A J A N   F A S H I O N"; textSize = 16f; maxLines = 2
+            text = "BFP Business Pro\nB H A J A N   F A S H I O N   P O I N T"; textSize = 16f; maxLines = 2
             setTextColor(0xFFFFFFFF.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
             setPadding(dp(12), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, -2, 1f))
@@ -149,7 +181,7 @@ class MainActivity : AppCompatActivity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(14), dp(14), dp(18))
-            setBackgroundColor(0xFFF4F6FB.toInt())
+            setBackgroundColor(0xFFF4F6FA.toInt())
         }
         root.addView(TextView(this).apply {
             text = title; textSize = 20f; gravity = Gravity.START
@@ -162,12 +194,12 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             setBackgroundColor(0xFFFFFFFF.toInt()); elevation = dp(8).toFloat(); setPadding(dp(4), dp(7), dp(4), dp(7))
         }
-        listOf("⌂  HOME", "+  SALE", "▤  PURCHASE", "▦  REPORTS").forEachIndexed { index, label ->
+        listOf("⌂\\nHOME", "＋\\nSALE", "▤\\nPURCHASE", "♙\\nPARTIES", "▦\\nREPORTS").forEachIndexed { index, label ->
             nav.addView(TextView(this).apply {
-                text = label; gravity = Gravity.CENTER; textSize = 12f
-                setTextColor(if ((index == 0 && (title == "HOME" || title == "DASHBOARD")) || (index == 1 && title.contains("SALE")) || (index == 2 && title.contains("PURCHASE")) || (index == 3 && title.contains("REPORT"))) 0xFF0879C9.toInt() else 0xFF454958.toInt())
+                text = label; gravity = Gravity.CENTER; textSize = 11f
+                setTextColor(if ((title == "DASHBOARD" && index == 0) || (title.contains("बिक्री") && index == 1) || (title.contains("खरीद") && index == 2) || (title.contains("PART") && index == 3) || (title.contains("REPORT") && index == 4)) 0xFF0879C9.toInt() else 0xFF454958.toInt())
                 typeface = android.graphics.Typeface.DEFAULT_BOLD; setPadding(0, dp(4), 0, dp(4))
-                setOnClickListener { when (index) { 0 -> showDashboard(); 1 -> showInvoices("SALE"); 2 -> showInvoices("PURCHASE"); 3 -> showReports() } }
+                setOnClickListener { when (index) { 0 -> showDashboard(); 1 -> showInvoices("SALE"); 2 -> showInvoices("PURCHASE"); 3 -> showParties(); 4 -> showReports() } }
             }, LinearLayout.LayoutParams(0, dp(52), 1f))
         }
         shell.addView(nav)
@@ -179,8 +211,8 @@ class MainActivity : AppCompatActivity() {
         android.graphics.drawable.GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
 
     private fun headerIcon(symbol: String, action: () -> Unit) = TextView(this).apply {
-        text = symbol; textSize = 24f; gravity = Gravity.CENTER; setTextColor(0xFFFFFFFF.toInt())
-        setPadding(dp(8), 0, dp(8), 0); setOnClickListener { action() }
+        text = symbol; textSize = 24f; gravity = Gravity.CENTER; setTextColor(0xFF626779.toInt())
+        setPadding(dp(8), 0, dp(8), 0); setTextColor(0xFFFFFFFF.toInt()); setOnClickListener { action() }
     }
 
     private fun addAction(parent: LinearLayout, label: String, color: Int = 0xFF245A78.toInt(), action: () -> Unit) {
@@ -191,113 +223,154 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(-1, dp(50)).apply { bottomMargin = dp(7) })
     }
 
-    // Legacy HOME navigation now opens the approved Business Dashboard.
     private fun showDashboard() {
-        showDashboardSummary()
+        val page = base("DASHBOARD")
+        val dateLabel = java.text.SimpleDateFormat("EEE, dd MMM yyyy", java.util.Locale.US).format(java.util.Date())
+        page.addView(TextView(this).apply {
+            text = "$dateLabel     •     FY: ${java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)}-${(java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)+1).toString().takeLast(2)}"
+            textSize = 13f; setTextColor(0xFF42516A.toInt()); setPadding(dp(4), dp(2), dp(4), dp(10))
+        })
+        fun money(v: Long) = "₹ " + String.format(java.util.Locale("en", "IN"), "%,.0f", v / 100.0)
+        fun tile(label: String, amount: String, color: Int, action: () -> Unit) = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(12), dp(8), dp(12)); background = rounded(color, 16); elevation = dp(2).toFloat()
+            addView(TextView(this@MainActivity).apply { text = label; textSize = 13f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF263247.toInt()) })
+            addView(TextView(this@MainActivity).apply { text = amount; textSize = 19f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF15243B.toInt()); setPadding(0, dp(5), 0, 0) })
+            setOnClickListener { action() }
+        }
+        val metricGrid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        page.addView(metricGrid)
+        fun metricRow(a: View, b: View) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            row.addView(a, LinearLayout.LayoutParams(0, dp(86), 1f).apply { setMargins(dp(2), dp(2), dp(5), dp(5)) })
+            row.addView(b, LinearLayout.LayoutParams(0, dp(86), 1f).apply { setMargins(dp(5), dp(2), dp(2), dp(5)) })
+            metricGrid.addView(row)
+        }
+        val sales = tile("TOTAL SALES", "₹ 0", 0xFFE1F6E8.toInt()) { showInvoices("SALE") }
+        val purchases = tile("TOTAL PURCHASE", "₹ 0", 0xFFFFE8E8.toInt()) { showInvoices("PURCHASE") }
+        val cash = tile("CASH BALANCE", "₹ 0", 0xFFE1F1FF.toInt()) { showDayBook() }
+        val outstanding = tile("OUTSTANDING", "₹ 0", 0xFFFFF1D2.toInt()) { showOutstandingParties(true) }
+        metricRow(sales, purchases); metricRow(cash, outstanding)
+        val partyRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val debtors = tile("DEBTORS  •  RECEIVABLE", "₹ 0", 0xFF14834B.toInt()) { showOutstandingParties(true) }
+        val creditors = tile("CREDITORS  •  PAYABLE", "₹ 0", 0xFFC9273D.toInt()) { showOutstandingParties(false) }
+        (debtors.getChildAt(0) as TextView).setTextColor(-1); (debtors.getChildAt(1) as TextView).setTextColor(-1)
+        (creditors.getChildAt(0) as TextView).setTextColor(-1); (creditors.getChildAt(1) as TextView).setTextColor(-1)
+        partyRow.addView(debtors, LinearLayout.LayoutParams(0, dp(90), 1f).apply { setMargins(dp(2), dp(4), dp(5), dp(8)) })
+        partyRow.addView(creditors, LinearLayout.LayoutParams(0, dp(90), 1f).apply { setMargins(dp(5), dp(4), dp(2), dp(8)) })
+        page.addView(partyRow)
+        val quickTitle = TextView(this).apply { text = "QUICK ACTIONS"; textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF142B50.toInt()); setPadding(dp(4), dp(10), 0, dp(8)) }
+        page.addView(quickTitle)
+        fun actionTile(label: String, color: Int, action: () -> Unit) = TextView(this).apply {
+            text = label; gravity = Gravity.CENTER; textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(-1); setPadding(dp(5), dp(12), dp(5), dp(12)); background = rounded(color, 14); setOnClickListener { action() }
+        }
+        val actions = listOf(
+            Triple("＋\nNEW SALE", 0xFF07843D.toInt(), { showInvoices("SALE") }),
+            Triple("🛒\nPURCHASE", 0xFF1769C2.toInt(), { showInvoices("PURCHASE") }),
+            Triple("↓\nPAYMENT IN", 0xFF7139A8.toInt(), { showPayments("IN") }),
+            Triple("↑\nPAYMENT OUT", 0xFFD83C4D.toInt(), { showPayments("OUT") }),
+            Triple("▤\nEXPENSE", 0xFFEA8A13.toInt(), { showExpenses() }),
+            Triple("▥\nBANK", 0xFF008C91.toInt(), { showBankManagement() })
+        )
+        actions.chunked(3).forEach { chunk ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            chunk.forEach { (label, color, action) -> row.addView(actionTile(label, color, action), LinearLayout.LayoutParams(0, dp(82), 1f).apply { setMargins(dp(2), dp(2), dp(4), dp(5)) }) }
+            if (chunk.size < 3) repeat(3 - chunk.size) { row.addView(View(this), LinearLayout.LayoutParams(0, dp(82), 1f)) }
+            page.addView(row)
+        }
+        val shortcuts = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        listOf("PARTIES" to { showParties() }, "STOCK / ITEMS" to { showItems() }, "DAY BOOK" to { showDayBook() }, "REPORTS" to { showReports() }).forEach { (label, action) ->
+            shortcuts.addView(TextView(this).apply { text = label; gravity = Gravity.CENTER; textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF15345E.toInt()); background = rounded(0xFFF4F8FF.toInt(), 12); setPadding(dp(3), dp(14), dp(3), dp(14)); setOnClickListener { action() } }, LinearLayout.LayoutParams(0, dp(58), 1f).apply { setMargins(dp(2), dp(3), dp(2), dp(5)) })
+        }
+        page.addView(shortcuts)
+        val backup = Button(this).apply { text = "☁  BACKUP & RESTORE       ⚙  SETTINGS"; isAllCaps = false; setOnClickListener { showBackupMenu() } }
+        page.addView(backup, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(5) })
+        lifecycleScope.launch {
+            try {
+                val now = java.util.Calendar.getInstance()
+                val start = (now.clone() as java.util.Calendar).apply { set(java.util.Calendar.DAY_OF_YEAR, 1); set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+                val end = System.currentTimeMillis()
+                val totals = withContext(Dispatchers.IO) { db.dao().observeBusinessDashboard(start, end).first() }
+                val balances = withContext(Dispatchers.IO) { ReportsRepository(db).partyBalances() }
+                val cashBalances = withContext(Dispatchers.IO) { LedgerRepository(db).reconcileMoneyBalances() }
+                (sales.getChildAt(1) as TextView).text = money(totals.salesPaise)
+                (purchases.getChildAt(1) as TextView).text = money(totals.purchasesPaise)
+                (cash.getChildAt(1) as TextView).text = money(cashBalances.cashPaise)
+                (outstanding.getChildAt(1) as TextView).text = money(balances.debtorsPaise)
+                (debtors.getChildAt(1) as TextView).text = money(balances.debtorsPaise)
+                (creditors.getChildAt(1) as TextView).text = money(balances.creditorsPaise)
+            } catch (e: Exception) { toast(e.message ?: "Dashboard डेटा लोड नहीं हुआ") }
+        }
     }
 
     private fun showDashboardSummary() {
-        val page = base("DASHBOARD")
-        page.setPadding(dp(12), dp(14), dp(12), dp(18))
-        val date = java.text.SimpleDateFormat("EEE, dd MMM yyyy", java.util.Locale("en", "IN")).format(java.util.Date())
-        val fyCalendar = java.util.Calendar.getInstance()
-        val fyStart = if (fyCalendar.get(java.util.Calendar.MONTH) >= 3) fyCalendar.get(java.util.Calendar.YEAR) else fyCalendar.get(java.util.Calendar.YEAR) - 1
-        page.addView(TextView(this).apply {
-            text = "$date     •     FY: $fyStart-${(fyStart + 1).toString().takeLast(2)}"
-            textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFF42536A.toInt()); setPadding(dp(4), dp(4), dp(4), dp(12))
-        })
-
-        fun money(value: Long) = "₹ " + String.format(java.util.Locale("en", "IN"), "%,.0f", value / 100.0)
-        fun summaryCard(label: String, value: String, color: Int, action: () -> Unit): LinearLayout {
-            return LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(14), dp(12), dp(10), dp(12)); background = rounded(color, 20)
-                elevation = dp(2).toFloat()
-                addView(TextView(this@MainActivity).apply {
-                    text = label; textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    setTextColor(0xFF243044.toInt())
-                })
-                addView(TextView(this@MainActivity).apply {
-                    text = value; tag = "dashboard_value"; textSize = 23f
-                    typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF101B32.toInt())
-                    setPadding(0, dp(7), 0, 0)
-                })
-                setOnClickListener { action() }
-            }
-        }
-        val cards = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        page.addView(cards)
-        val sales = summaryCard("TOTAL SALES", "₹ 0", 0xFFDDF3E7.toInt()) { showInvoices("SALE") }
-        val purchases = summaryCard("TOTAL PURCHASE", "₹ 0", 0xFFFFE8E8.toInt()) { showInvoices("PURCHASE") }
-        val cash = summaryCard("CASH BALANCE", "₹ 0", 0xFFDDEEFF.toInt()) { showDayBook() }
-        val outstanding = summaryCard("OUTSTANDING", "₹ 0", 0xFFFFF0CC.toInt()) { showOutstandingParties(true) }
-        val debtors = summaryCard("DEBTORS  •  RECEIVABLE", "₹ 0", 0xFF13834F.toInt()) { showOutstandingParties(true) }
-        val creditors = summaryCard("CREDITORS  •  PAYABLE", "₹ 0", 0xFFC91F3C.toInt()) { showOutstandingParties(false) }
-        fun addPair(left: View, right: View) {
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            row.addView(left, LinearLayout.LayoutParams(0, dp(104), 1f).apply { setMargins(dp(3), dp(3), dp(5), dp(5)) })
-            row.addView(right, LinearLayout.LayoutParams(0, dp(104), 1f).apply { setMargins(dp(5), dp(3), dp(3), dp(5)) })
-            cards.addView(row)
-        }
-        addPair(sales, purchases); addPair(cash, outstanding); addPair(debtors, creditors)
-
-        val actionsTitle = TextView(this).apply {
-            text = "QUICK ACTIONS"; textSize = 17f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFF1C2D4B.toInt()); setPadding(dp(4), dp(18), dp(4), dp(8))
-        }
-        page.addView(actionsTitle)
-        fun actionTile(label: String, symbol: String, color: Int, action: () -> Unit) = TextView(this).apply {
-            text = "$symbol\n$label"; gravity = Gravity.CENTER; textSize = 16f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFFFFFFFF.toInt())
-            setPadding(dp(5), dp(10), dp(5), dp(10)); background = rounded(color, 20)
+        val page = base("BUSINESS DASHBOARD / बिजनेस डैशबोर्ड")
+        // Dev105: prominent receivable/payable overview cards at the top of Dashboard.
+        val outstandingRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun outstandingCard(title: String, subtitle: String, color: Int, action: () -> Unit) = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(12), dp(10), dp(12))
+            background = rounded(0xFFFFFFFF.toInt(), 18)
+            elevation = dp(2).toFloat()
+            addView(TextView(this@MainActivity).apply { text = title; textSize = 14f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(color) })
+            addView(TextView(this@MainActivity).apply { text = "₹ 0.00"; tag = "outstanding_amount"; textSize = 20f; typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(0xFF34394B.toInt()); setPadding(0, dp(7), 0, dp(3)) })
+            addView(TextView(this@MainActivity).apply { text = subtitle; textSize = 11f; setTextColor(0xFF777D8D.toInt()) })
             setOnClickListener { action() }
         }
-        fun addActionRow(a: View, b: View, c: View) {
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            listOf(a, b, c).forEach { view -> row.addView(view, LinearLayout.LayoutParams(0, dp(108), 1f).apply { setMargins(dp(3), dp(3), dp(3), dp(5)) }) }
-            page.addView(row)
-        }
-        addActionRow(actionTile("NEW SALE", "+", 0xFF078342.toInt()) { showInvoices("SALE") }, actionTile("PURCHASE", "🛒", 0xFF1769BD.toInt()) { showInvoices("PURCHASE") }, actionTile("PAYMENT IN", "↓", 0xFF7138A5.toInt()) { showPayments("IN") })
-        addActionRow(actionTile("PAYMENT OUT", "↑", 0xFFD9364C.toInt()) { showPayments("OUT") }, actionTile("EXPENSE", "▤", 0xFFEF8B0B.toInt()) { showExpenses() }, actionTile("BANK", "▥", 0xFF008C8C.toInt()) { showBankManagement() })
-
-        val shortcuts = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        listOf("STOCK / ITEMS" to { showItems() }, "DAY BOOK" to { showDayBook() }, "REPORTS" to { showReports() }).forEach { (label, callback) ->
-            shortcuts.addView(TextView(this).apply {
-                text = label; gravity = Gravity.CENTER; textSize = 12f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setTextColor(0xFF203A60.toInt()); setPadding(dp(3), dp(16), dp(3), dp(12)); setOnClickListener { callback() }
-            }, LinearLayout.LayoutParams(0, -2, 1f))
-        }
-        page.addView(shortcuts)
-
-        val viewBillsButton = TextView(this).apply {
-            text = "▤   VIEW SAVED BILLS"
-            gravity = Gravity.CENTER
-            textSize = 16f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFFFFFFFF.toInt())
-            setPadding(dp(12), dp(15), dp(12), dp(15))
-            background = rounded(0xFF17345F.toInt(), 16)
-            elevation = dp(2).toFloat()
-            setOnClickListener { showInvoices("SALE") }
-        }
-        page.addView(viewBillsButton, LinearLayout.LayoutParams(-1, -2).apply {
-            setMargins(dp(3), dp(5), dp(3), dp(12))
-        })
-
+        val getCard = outstandingCard("↙  YOU'LL GET / लेना है", "ग्राहकों से बकाया • Receivables", 0xFF159B72.toInt()) { showOutstandingParties(true) }
+        val giveCard = outstandingCard("↗  YOU'LL GIVE / देना है", "सप्लायरों को बकाया • Payables", 0xFFD95368.toInt()) { showOutstandingParties(false) }
+        outstandingRow.addView(getCard, LinearLayout.LayoutParams(0, dp(112), 1f).apply { setMargins(dp(2), dp(3), dp(5), dp(10)) })
+        outstandingRow.addView(giveCard, LinearLayout.LayoutParams(0, dp(112), 1f).apply { setMargins(dp(5), dp(3), dp(2), dp(10)) })
+        page.addView(outstandingRow)
         lifecycleScope.launch {
             try {
-                val now = System.currentTimeMillis()
-                val totals = withContext(Dispatchers.IO) { db.dao().observeBusinessDashboard(0L, now + 1L).first() }
                 val balances = withContext(Dispatchers.IO) { ReportsRepository(db).partyBalances() }
-                val cashBalance = withContext(Dispatchers.IO) { LedgerRepository(db).currentCashBalancePaise() }
-                (sales.getChildAt(1) as TextView).text = money(totals.salesPaise)
-                (purchases.getChildAt(1) as TextView).text = money(totals.purchasesPaise)
-                (cash.getChildAt(1) as TextView).text = money(cashBalance)
-                (outstanding.getChildAt(1) as TextView).text = money(balances.debtorsPaise + balances.creditorsPaise)
-                (debtors.getChildAt(1) as TextView).text = money(balances.debtorsPaise)
-                (creditors.getChildAt(1) as TextView).text = money(balances.creditorsPaise)
-            } catch (e: Exception) { toast(e.message ?: "Dashboard data could not be loaded") }
+                (getCard.getChildAt(1) as TextView).text = "₹ ${String.format(java.util.Locale("en", "IN"), "%,.2f", balances.debtorsPaise / 100.0)}"
+                (giveCard.getChildAt(1) as TextView).text = "₹ ${String.format(java.util.Locale("en", "IN"), "%,.2f", balances.creditorsPaise / 100.0)}"
+            } catch (e: Exception) { toast(e.message ?: "बकाया राशि लोड नहीं हुई") }
+        }
+        val todayLabel = java.text.SimpleDateFormat("EEEE, dd MMM yyyy", java.util.Locale("en", "IN")).format(java.util.Date())
+        page.addView(TextView(this).apply { text = "आज का कारोबार / TODAY'S BUSINESS\n$todayLabel"; textSize = 14f; setTextColor(0xFF596174.toInt()); setPadding(dp(4), dp(4), dp(4), dp(12)) })
+        val startCal = java.util.Calendar.getInstance().apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }
+        val startMillis = startCal.timeInMillis
+        val endMillis = startMillis + 24L * 60L * 60L * 1000L
+        fun metric(label: String, amount: Long, color: Int, action: () -> Unit) = TextView(this).apply {
+            text = "$label\n₹${String.format(java.util.Locale("en", "IN"), "%,.2f", amount / 100.0)}"
+            textSize = 15f; gravity = Gravity.CENTER; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(0xFFFFFFFF.toInt()); setPadding(dp(8), dp(15), dp(8), dp(15)); background = rounded(color, 16); setOnClickListener { action() }
+        }
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        page.addView(grid)
+        fun addMetricRow(left: View, right: View) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val lp = LinearLayout.LayoutParams(0, dp(92), 1f).apply { setMargins(dp(3), dp(3), dp(3), dp(3)) }
+            row.addView(left, lp); row.addView(right, LinearLayout.LayoutParams(0, dp(92), 1f).apply { setMargins(dp(3), dp(3), dp(3), dp(3)) }); grid.addView(row)
+        }
+        addMetricRow(metric("SALE / बिक्री", 0, 0xFF0879C9.toInt()) { showInvoices("SALE") }, metric("RECEIPTS / प्राप्तियाँ", 0, 0xFF168447.toInt()) { showPayments("IN") })
+        addMetricRow(metric("PURCHASE / खरीद", 0, 0xFF596174.toInt()) { showInvoices("PURCHASE") }, metric("EXPENSE / खर्च", 0, 0xFFC74646.toInt()) { showExpenses() })
+        page.addView(metric("EST. GROSS PROFIT / अनुमानित सकल मुनाफा", 0, 0xFF236B58.toInt()) { showProfitAndDeadStock() }, LinearLayout.LayoutParams(-1, dp(84)).apply { topMargin = dp(4); bottomMargin = dp(8) })
+        page.addView(TextView(this).apply { text = "ध्यान दें: प्राप्तियाँ बिक्री से अलग हैं। मुनाफा मौजूदा Item Master दरों पर अनुमान है; यह वास्तविक ऐतिहासिक लागत या नेट प्रॉफिट नहीं है।"; textSize = 12f; setTextColor(0xFF6C7180.toInt()); setPadding(dp(6), dp(8), dp(6), dp(12)) })
+        addAction(page, "SALE / बिक्री खोलें") { showInvoices("SALE") }
+        addAction(page, "PURCHASE / खरीद खोलें") { showInvoices("PURCHASE") }
+        addAction(page, "RECEIPTS / प्राप्तियाँ खोलें") { showPayments("IN") }
+        addAction(page, "EXPENSES / खर्च खोलें") { showExpenses() }
+        addAction(page, "DAY BOOK / रोज़नामचा") { showDayBook() }
+        addAction(page, "REPORTS / रिपोर्ट") { showReports() }
+        addAction(page, "BUSINESS TRENDS / कारोबार के ग्राफ") { showBusinessTrends() }
+        addAction(page, "AI DECISION ASSISTANT / AI निर्णय सहायक") { showAiDecisionAssistant() }
+        addAction(page, "AI BUSINESS INTELLIGENCE / AI कारोबार विश्लेषण") { showAiBusinessIntelligence() }
+        addAction(page, "AI DEMAND FORECAST / मांग का अनुमान") { showAiDemandForecast() }
+        addAction(page, "AI PROFIT & CASHFLOW ANALYSIS / मुनाफा और नकदी विश्लेषण") { showAiProfitCashflow() }
+        lifecycleScope.launch {
+            try {
+                val totals = withContext(Dispatchers.IO) { db.dao().observeBusinessDashboard(startMillis, endMillis).first() }
+                (grid.getChildAt(0) as LinearLayout).let { (it.getChildAt(0) as TextView).text = "SALE / बिक्री\n₹${totals.salesPaise / 100.0}"; (it.getChildAt(1) as TextView).text = "RECEIPTS / प्राप्तियाँ\n₹${totals.receiptsPaise / 100.0}" }
+                (grid.getChildAt(1) as LinearLayout).let { (it.getChildAt(0) as TextView).text = "PURCHASE / खरीद\n₹${totals.purchasesPaise / 100.0}"; (it.getChildAt(1) as TextView).text = "EXPENSE / खर्च\n₹${totals.expensesPaise / 100.0}" }
+                (grid.getChildAt(2) as LinearLayout).let { (it.getChildAt(0) as TextView).text = "EST. GROSS PROFIT / अनुमानित सकल मुनाफा\n₹${totals.estimatedGrossProfitPaise / 100.0}" }
+
+            } catch (e: Exception) { toast(e.message ?: "Dashboard डेटा लोड नहीं हुआ") }
         }
     }
 
@@ -639,18 +712,65 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMenu() {
-        val page = base("MENU / मेन्यू")
-        fun group(title: String, entries: List<Pair<String, () -> Unit>>) {
-            val card = sectionCard(title)
-            entries.forEach { (label, action) -> card.addView(menuRow(label, action)) }
-            page.addView(card)
+        val page = base("MENU")
+        fun menuEntry(label: String, action: () -> Unit) {
+            val row = menuRow(label, action)
+            page.addView(row)
         }
-        group("My Business / मेरा व्यवसाय", listOf("Sale / बिक्री" to { showInvoices("SALE") }, "Purchase / खरीद" to { showInvoices("PURCHASE") }, "Expenses / खर्च" to { showExpenses() }, "Other Income / अन्य आय" to { showPayments("IN") }, "Reports / रिपोर्ट" to { showReports() }, "Business Trends / कारोबार के ग्राफ" to { showBusinessTrends() }))
-        group("Parties & Accounts / पार्टियाँ और खाते", listOf("Customers / Suppliers / ग्राहक और सप्लायर" to { showParties() }, "Party Ledger / पार्टी खाता" to { showLedgerPicker() }, "Day Book / रोज़नामचा" to { showDayBook() }, "Bank / बैंक" to { showBankManagement() }, "Bank Accounts / बैंक खाते" to { showBankAccounts() }))
-        group("Staff & Payroll / कर्मचारी और वेतन", listOf("Employees / Salary Ledger / कर्मचारी और वेतन खाता" to { showEmployees() }))
-        group("Inventory Intelligence / स्टॉक विश्लेषण", listOf("Smart Stock / Reorder Suggestions / स्मार्ट स्टॉक" to { showSmartStock() }, "Per-Suit Profit & Dead Stock / प्रति सूट मुनाफा और रुका स्टॉक" to { showProfitAndDeadStock() }, "Supplier Purchase Insights / सप्लायर खरीद रिपोर्ट" to { showSupplierInsights() }, "AI Decision Assistant / AI निर्णय सहायक" to { showAiDecisionAssistant() }, "AI Business Intelligence / AI कारोबार विश्लेषण" to { showAiBusinessIntelligence() }, "AI Demand Forecast / मांग का अनुमान" to { showAiDemandForecast() }, "AI Profit & Cashflow Analysis / मुनाफा और नकदी विश्लेषण" to { showAiProfitCashflow() }, "Item Master / Design Codes / आइटम और डिजाइन कोड" to { showItems() }))
-        group("Customer Intelligence / ग्राहक जानकारी", listOf("Customer Insights / ग्राहक विश्लेषण" to { showCustomerInsights() }))
-        group("Utilities / उपयोगिताएँ", listOf("GST Settings / GST सेटिंग्स" to { showGstSettings() }, "Voice Input Language: English" to { showVoiceInputLanguageSettings() }, "Backup / Restore / बैकअप" to { showBackupMenu() }, "Display Language: English" to { AlertDialog.Builder(this).setTitle("Display Language").setMessage("English is the only display language.").setPositiveButton("OK", null).show() }))
+        fun section(title: String) {
+            page.addView(TextView(this).apply {
+                text = title.uppercase(java.util.Locale.US)
+                textSize = 12f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(0xFF66738A.toInt())
+                setPadding(dp(10), dp(16), dp(8), dp(6))
+            })
+        }
+
+        // The menu follows the approved BFP side-menu information hierarchy.
+        menuEntry("⌂   Dashboard") { showDashboard() }
+        menuEntry("▤   New Sale (Billing)") { showInvoices("SALE") }
+
+        section("My Business / मेरा व्यवसाय")
+        menuEntry("🛒   Purchase") { showInvoices("PURCHASE") }
+        menuEntry("↓   Payment In (Receipt)") { showPayments("IN") }
+        menuEntry("↑   Payment Out (Payment)") { showPayments("OUT") }
+        menuEntry("Expenses / खर्च") { showExpenses() }
+        menuEntry("Bank / बैंक") { showBankManagement() }
+        menuEntry("Bank Accounts") { showBankAccounts() }
+        menuEntry("▤   Day Book") { showDayBook() }
+
+        section("Parties & Accounts / पार्टियाँ और खाते")
+        section("Inventory / स्टॉक")
+        menuEntry("♙   Parties (Customers & Suppliers)") { showParties() }
+        menuEntry("◇   Stock / Items") { showItems() }
+        menuEntry("▤   Debtors (Receivable)") { showOutstandingParties(true) }
+        menuEntry("▤   Creditors (Payable)") { showOutstandingParties(false) }
+
+        section("Reports & Tools")
+        menuEntry("▥   Reports") { showReports() }
+        menuEntry("▥   Business Trends") { showBusinessTrends() }
+        menuEntry("Smart Stock / Reorder Suggestions") { showSmartStock() }
+        menuEntry("Per-Suit Profit & Dead Stock") { showProfitAndDeadStock() }
+        menuEntry("Supplier Purchase Insights / सप्लायर खरीद रिपोर्ट") { showSupplierInsights() }
+        menuEntry("Customer Insights / ग्राहक विश्लेषण") { showCustomerInsights() }
+        menuEntry("AI Decision Assistant / AI निर्णय सहायक") { showAiDecisionAssistant() }
+        menuEntry("AI Business Intelligence") { showAiBusinessIntelligence() }
+        menuEntry("AI Demand Forecast") { showAiDemandForecast() }
+        menuEntry("AI Profit & Cashflow Analysis") { showAiProfitCashflow() }
+        menuEntry("♙   Employees / Salary Ledger") { showEmployees() }
+        menuEntry("☁   Backup & Restore") { showBackupMenu() }
+
+        section("Settings")
+        menuEntry("⚙   GST Settings") { showGstSettings() }
+        menuEntry("⚙   Voice Input Language: English") { showVoiceInputLanguageSettings() }
+        menuEntry("⚙   Display Language: English") {
+            AlertDialog.Builder(this)
+                .setTitle("Display Language")
+                .setMessage("English is the only display language.")
+                .setPositiveButton("OK", null)
+                .show()
+        }
     }
 
     private fun showVoiceInputLanguageSettings() {
@@ -2268,11 +2388,7 @@ class MainActivity : AppCompatActivity() {
             if (parties.isEmpty()) { toast("पहले ग्राहक/सप्लायर जोड़ें"); return@launch }
             val expectedKind = if (direction == "IN") "SALE" else "PURCHASE"
             val invoices = withContext(Dispatchers.IO) { db.dao().observeInvoices(expectedKind).first().filter { it.paidPaise < it.totalPaise || it.id == existing?.invoiceId } }
-            val box = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(16), dp(10), dp(16), dp(14))
-                setBackgroundColor(0xFFF4F7FC.toInt())
-            }
+            val box = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(6), dp(18), 0) }
             val party = Spinner(this@MainActivity).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, parties.map { it.name }); setSelection(parties.indexOfFirst { it.id == (existing?.partyId ?: preselectedPartyId) }.coerceAtLeast(0)) }
             val billOptions = listOf("बिना बिल लिंक") + invoices.map { "${it.invoiceNumber} — बाकी ₹${(it.totalPaise - it.paidPaise) / 100.0}" }
             val bill = Spinner(this@MainActivity).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, billOptions); setSelection((invoices.indexOfFirst { it.id == existing?.invoiceId } + 1).coerceAtLeast(0)) }
@@ -2328,110 +2444,101 @@ class MainActivity : AppCompatActivity() {
                 invoices.forEach { invoice ->
                     val party = withContext(Dispatchers.IO) { db.dao().observeParties().first().firstOrNull { it.id == invoice.partyId }?.name ?: "पार्टी #${invoice.partyId}" }
                     val row = card("बिल: ${invoice.invoiceNumber}\nपार्टी: $party\nतारीख: ${java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale("hi", "IN")).format(java.util.Date(invoice.dateEpochMillis))}\nकुल: ₹${invoice.totalPaise / 100.0}  |  भुगतान: ₹${invoice.paidPaise / 100.0}")
-                    list.addView(row)
-                    row.isClickable = true
+                    // Tap the invoice card to open the PDF/print screen directly.
                     row.setOnClickListener {
-                        lifecycleScope.launch {
-                            try {
-                                val detail = withContext(Dispatchers.IO) {
-                                    val selectedParty = db.dao().observeParties().first()
-                                        .firstOrNull { it.id == invoice.partyId }
-                                    val selectedLines = db.dao().getInvoiceLines(invoice.id)
-                                    selectedParty to selectedLines
-                                }
-                                val selectedParty = detail.first
-                                val selectedLines = detail.second
-                                val dateText = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("en", "IN"))
-                                    .format(java.util.Date(invoice.dateEpochMillis))
-                                val detailText = buildString {
-                                    append("Bill No: ${invoice.invoiceNumber}\\n")
-                                    append("Date: $dateText\\n")
-                                    append("Customer: ${selectedParty?.name ?: party}\\n")
-                                    if (!selectedParty?.mobile.isNullOrBlank()) append("Mobile: ${selectedParty?.mobile}\\n")
-                                    append("\\nITEM DETAILS\\n")
-                                    selectedLines.forEachIndexed { index, line ->
-                                        append("${index + 1}. ${line.itemNameSnapshot}\\n")
-                                        append("   Qty: ${line.quantity}   Rate: ₹${line.ratePaise / 100.0}\\n")
-                                        append("   Amount: ₹${line.taxablePaise / 100.0}\\n")
-                                    }
-                                    append("\\nSubtotal: ₹${invoice.subtotalPaise / 100.0}\\n")
-                                    append("Discount: ₹${invoice.discountPaise / 100.0}\\n")
-                                    append("GST: ₹${(invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise) / 100.0}\\n")
-                                    append("TOTAL: ₹${invoice.totalPaise / 100.0}\\n")
-                                    append("Paid: ₹${invoice.paidPaise / 100.0}\\n")
-                                    append("Balance: ₹${(invoice.totalPaise - invoice.paidPaise) / 100.0}\\n")
-                                    if (invoice.note.isNotBlank()) append("\\nNote: ${invoice.note}")
-                                }
-                                val detailView = TextView(this@MainActivity).apply {
-                                    text = detailText
-                                    textSize = 15f
-                                    setTextColor(0xFF243044.toInt())
-                                    setPadding(dp(18), dp(12), dp(18), dp(12))
-                                }
-                                val scroll = ScrollView(this@MainActivity).apply { addView(detailView) }
-                                val billDetailsDialog = AlertDialog.Builder(this@MainActivity)
-                                    .setTitle("BILL DETAILS")
-                                    .setView(scroll)
-                                    .setPositiveButton("PDF / PRINT") { _, _ ->
-                                        lifecycleScope.launch { printInvoice(invoice) }
-                                    }
-                                    .setNeutralButton("DELETE COMPLETE BILL", null)
-                                    .setNegativeButton("CLOSE", null)
-                                    .create()
-                                billDetailsDialog.setOnShowListener {
-                                    val deleteButton = billDetailsDialog.getButton(AlertDialog.BUTTON_NEUTRAL)
-                                    deleteButton.apply {
-                                        setTextColor(0xFFB3261E.toInt())
-                                        setOnClickListener {
-                                            AlertDialog.Builder(this@MainActivity)
-                                                .setTitle("Delete complete bill?")
-                                                .setMessage(
-                                                    "Bill ${invoice.invoiceNumber} and all its items will be deleted together. " +
-                                                        "Payments linked to this bill will also be reversed from cash/bank and the party ledger. " +
-                                                        "Related stock will be adjusted. Other unlinked party payments will remain unchanged. " +
-                                                        "This action cannot be undone."
-                                                )
-                                                .setNegativeButton("CANCEL", null)
-                                                .setPositiveButton("DELETE BILL") { _, _ ->
-                                                    deleteButton.isEnabled = false
-                                                    lifecycleScope.launch(Dispatchers.IO) {
-                                                        try {
-                                                            InvoiceRepository(db).delete(invoice.id)
-                                                            if (invoice.attachmentPath.isNotBlank()) {
-                                                                resolvePurchaseAttachment(invoice.attachmentPath).delete()
-                                                            }
-                                                            withContext(Dispatchers.Main) {
-                                                                billDetailsDialog.dismiss()
-                                                                toast("Complete bill ${invoice.invoiceNumber} deleted")
-                                                            }
-                                                        } catch (e: Exception) {
-                                                            withContext(Dispatchers.Main) {
-                                                                deleteButton.isEnabled = true
-                                                                toast(e.message ?: "Bill could not be deleted")
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                .show()
-                                        }
-                                    }
-                                }
-                                billDetailsDialog.show()
-                            } catch (e: Exception) {
-                                toast(e.message ?: "Could not open bill details")
-                            }
-                        }
+                        lifecycleScope.launch { printInvoice(invoice) }
                     }
+                    list.addView(row)
                     addAction(list, "${invoice.invoiceNumber} — Edit / Delete", 0xFF607D8B.toInt()) {
-                        AlertDialog.Builder(this@MainActivity).setItems(arrayOf("PDF / Print", "Edit", "Delete")) { _, which ->
+                        val actions = if (kind == "SALE") arrayOf("PDF / Print", "WhatsApp पर PDF भेजें", "Edit", "Delete") else arrayOf("PDF / Print", "Edit", "Delete")
+                        AlertDialog.Builder(this@MainActivity).setItems(actions) { _, which ->
                             if (which == 0) lifecycleScope.launch { printInvoice(invoice) }
-                            else if (which == 1) lifecycleScope.launch { val lines = withContext(Dispatchers.IO) { db.dao().getInvoiceLines(invoice.id) }; invoiceDialog(kind, invoice, lines) }
-                            else AlertDialog.Builder(this@MainActivity).setMessage("यह पूरा बिल और इससे जुड़े सभी भुगतान एक साथ हटेंगे। संबंधित कैश/बैंक और पार्टी लेजर एंट्री भी हटेगी तथा स्टॉक समायोजित होगा। बिना बिल से जुड़े अन्य भुगतान सुरक्षित रहेंगे। क्या आप जारी रखना चाहते हैं?").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ -> lifecycleScope.launch(Dispatchers.IO) { try { InvoiceRepository(db).delete(invoice.id); if (invoice.attachmentPath.isNotBlank()) resolvePurchaseAttachment(invoice.attachmentPath).delete(); withContext(Dispatchers.Main) { toast("बिल हटाया गया") } } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल हटाया नहीं जा सका") } } } }.show()
+                            else if (kind == "SALE" && which == 1) lifecycleScope.launch { shareInvoicePdf(invoice) }
+                            else if (which == if (kind == "SALE") 2 else 1) lifecycleScope.launch { val lines = withContext(Dispatchers.IO) { db.dao().getInvoiceLines(invoice.id) }; invoiceDialog(kind, invoice, lines) }
+                            else AlertDialog.Builder(this@MainActivity).setMessage("यह बिल हट जाएगा। जुड़े भुगतान पहले हटाने होंगे।").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ -> lifecycleScope.launch(Dispatchers.IO) { try { InvoiceRepository(db).delete(invoice.id); if (invoice.attachmentPath.isNotBlank()) resolvePurchaseAttachment(invoice.attachmentPath).delete(); withContext(Dispatchers.Main) { toast("बिल हटाया गया") } } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल हटाया नहीं जा सका") } } } }.show()
                         }.show()
                     }
                 }
             }
         }
+    }
+
+    /** Creates a customer-facing PDF and opens WhatsApp with it attached. User must tap Send. */
+    private suspend fun shareInvoicePdf(invoice: InvoiceEntity) {
+        try {
+            require(invoice.kind == "SALE") { "WhatsApp ग्राहक कॉपी केवल बिक्री बिल के लिए उपलब्ध है" }
+            val details = withContext(Dispatchers.IO) {
+                val party = db.dao().observeParties().first().firstOrNull { it.id == invoice.partyId } ?: error("ग्राहक नहीं मिला")
+                Triple(party, db.dao().getInvoiceLines(invoice.id), db.dao().getBusinessProfile() ?: BusinessProfileEntity())
+            }
+            val party = details.first
+            val lines = details.second
+            val profile = details.third
+            val folder = File(cacheDir, "invoice_shares").apply { mkdirs() }
+            val safeNumber = invoice.invoiceNumber.replace(Regex("[^A-Za-z0-9_-]"), "_")
+            val file = File(folder, "BFP-Bill-$safeNumber.pdf")
+            val pdf = android.graphics.pdf.PdfDocument()
+            val width = 595; val height = 842
+            val normal = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.BLACK; textSize = 11f }
+            val strong = android.graphics.Paint(normal).apply { typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD) }
+            var pageNo = 1
+            var page = pdf.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(width, height, pageNo).create())
+            var canvas = page.canvas
+            var y = 42f
+            fun write(text: String, bold: Boolean = false, size: Float = 11f, step: Float = 19f) {
+                val p = android.graphics.Paint(if (bold) strong else normal).apply { textSize = size }
+                canvas.drawText(text.take(92), 36f, y, p); y += step
+            }
+            fun nextPage() {
+                if (y > 785f) {
+                    pdf.finishPage(page); pageNo++
+                    page = pdf.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(width, height, pageNo).create())
+                    canvas = page.canvas; y = 42f
+                }
+            }
+            write(profile.businessName.ifBlank { "BHAJAN FASHION POINT" }, true, 20f, 26f)
+            write(profile.address, false, 10f)
+            write("Mobile: ${profile.mobile}    GSTIN: ${profile.gstin}", false, 10f, 25f)
+            write("SALES INVOICE", true, 15f, 25f)
+            write("Bill No: ${invoice.invoiceNumber}    Date: ${java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.US).format(java.util.Date(invoice.dateEpochMillis))}", true)
+            write("Customer: ${party.name}", true)
+            write("Mobile: ${party.mobile}")
+            if (party.address.isNotBlank()) write("Address: ${party.address}")
+            y += 8f
+            write("ITEM                         QTY          RATE             AMOUNT", true, 10f, 20f)
+            canvas.drawLine(36f, y - 12f, 559f, y - 12f, normal)
+            lines.forEach { item ->
+                nextPage()
+                val amount = item.taxablePaise + item.cgstPaise + item.sgstPaise + item.igstPaise
+                write("${item.itemNameSnapshot.take(25).padEnd(25)}  ${item.quantity}       Rs.${"%.2f".format(item.ratePaise / 100.0)}       Rs.${"%.2f".format(amount / 100.0)}", false, 10f, 18f)
+            }
+            y += 10f; canvas.drawLine(330f, y, 559f, y, normal); y += 20f
+            write("Subtotal: Rs.${"%.2f".format(invoice.subtotalPaise / 100.0)}")
+            write("Discount: Rs.${"%.2f".format(invoice.discountPaise / 100.0)}")
+            write("CGST: Rs.${"%.2f".format(invoice.cgstPaise / 100.0)}")
+            write("SGST: Rs.${"%.2f".format(invoice.sgstPaise / 100.0)}")
+            write("IGST: Rs.${"%.2f".format(invoice.igstPaise / 100.0)}")
+            write("GRAND TOTAL: Rs.${"%.2f".format(invoice.totalPaise / 100.0)}", true, 15f, 24f)
+            write("Paid: Rs.${"%.2f".format(invoice.paidPaise / 100.0)}    Balance: Rs.${"%.2f".format((invoice.totalPaise - invoice.paidPaise) / 100.0)}")
+            if (invoice.note.isNotBlank()) write("Note: ${invoice.note}")
+            write("Thank you for shopping with us!", true)
+            pdf.finishPage(page)
+            withContext(Dispatchers.IO) { file.outputStream().use { pdf.writeTo(it) }; pdf.close() }
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"; putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "BFP Bill ${invoice.invoiceNumber}")
+                putExtra(Intent.EXTRA_TEXT, "नमस्ते ${party.name}, आपका बिल ${invoice.invoiceNumber} PDF में संलग्न है।")
+                val mobileDigits = party.mobile.filter { it.isDigit() }.let { if (it.length == 10) "91$it" else it }
+                if (mobileDigits.length >= 10) putExtra("jid", "$mobileDigits@s.whatsapp.net")
+                clipData = android.content.ClipData.newUri(contentResolver, "Invoice PDF", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            send.setPackage("com.whatsapp")
+            try { startActivity(send) } catch (_: Exception) {
+                send.setPackage(null); startActivity(Intent.createChooser(send, "बिल PDF शेयर करें"))
+            }
+        } catch (e: Exception) { toast(e.message ?: "बिल PDF शेयर नहीं हो सका") }
     }
 
     private suspend fun printInvoice(invoice: InvoiceEntity) {
@@ -2533,28 +2640,35 @@ class MainActivity : AppCompatActivity() {
             val parties = withContext(Dispatchers.IO) { db.dao().observeParties().first().filter { it.partyType == "BOTH" || it.partyType == if (kind == "SALE") "CUSTOMER" else "SUPPLIER" } }
             val businessProfile = withContext(Dispatchers.IO) { db.dao().getBusinessProfile() ?: BusinessProfileEntity() }
             if (parties.isEmpty() && kind == "PURCHASE") { toast("पहले सप्लायर जोड़ें"); return@launch }
-            val box = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(16), dp(10), dp(16), dp(14))
-                setBackgroundColor(0xFFF4F7FC.toInt())
-            }
+            val box = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(6), dp(18), 0) }
             val number = editField("बिल नंबर", existing?.invoiceNumber ?: "${if (kind == "SALE") "S" else "P"}-${System.currentTimeMillis() % 1000000}")
+            // DEV115: clearer invoice identity row matching the approved BFP billing reference.
+            val billHeading = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(2), dp(8), dp(2), dp(8))
+            }
+            billHeading.addView(TextView(this@MainActivity).apply {
+                text = if (kind == "SALE") "🛒  New Bill (Sale)" else "🛒  New Purchase"
+                textSize = 18f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(0xFF102B4E.toInt())
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            billHeading.addView(TextView(this@MainActivity).apply {
+                text = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+                textSize = 13f
+                setTextColor(0xFF455A64.toInt())
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+                background = rounded(0xFFEAF1FA.toInt(), 8)
+            })
+            box.addView(billHeading)
             // New sales default to CREDIT; CASH creates an immediate cash receipt.
             var saleSettlementMode = "CREDIT"
             val saleSettlementPicker = if (kind == "SALE" && existing == null) RadioGroup(this@MainActivity).apply {
                 orientation = RadioGroup.HORIZONTAL
-                setPadding(dp(6), dp(4), dp(6), dp(8))
-                background = rounded(0xFFE8EDF5.toInt(), 24)
-                val cash = RadioButton(this@MainActivity).apply {
-                    id = View.generateViewId(); text = "CASH"; textSize = 15f
-                    setTextColor(0xFF53627A.toInt()); buttonTintList = android.content.res.ColorStateList.valueOf(0xFF1672D4.toInt())
-                    setPadding(dp(10), dp(8), dp(10), dp(8))
-                }
-                val credit = RadioButton(this@MainActivity).apply {
-                    id = View.generateViewId(); text = "CREDIT"; textSize = 15f; isChecked = true
-                    setTextColor(0xFF10265B.toInt()); buttonTintList = android.content.res.ColorStateList.valueOf(0xFF1672D4.toInt())
-                    setPadding(dp(10), dp(8), dp(10), dp(8))
-                }
+                setPadding(0, dp(4), 0, dp(8))
+                val cash = RadioButton(this@MainActivity).apply { id = View.generateViewId(); text = "CASH"; textSize = 16f }
+                val credit = RadioButton(this@MainActivity).apply { id = View.generateViewId(); text = "CREDIT"; textSize = 16f; isChecked = true }
                 addView(cash, RadioGroup.LayoutParams(0, -2, 1f))
                 addView(credit, RadioGroup.LayoutParams(0, -2, 1f))
                 setOnCheckedChangeListener { _, checkedId -> saleSettlementMode = if (checkedId == cash.id) "CASH" else "CREDIT" }
@@ -2594,7 +2708,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 val saleInvoices = withContext(Dispatchers.IO) { db.dao().observeInvoices("SALE").first() }
                 val customerPayments = withContext(Dispatchers.IO) { db.dao().observePayments().first() }
-                val partiesMutable = parties.toMutableList()
+                val partiesMutable: MutableList<PartyEntity> = parties.toMutableList()
                 var refreshCustomerRows: (String) -> Unit = {}
                 fun chooseCustomer(customer: PartyEntity) {
                     selectedPartyId = customer.id
@@ -2632,8 +2746,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 refreshCustomerRows = { query ->
                     results.removeAllViews()
-                    partiesMutable.filter { it.name.contains(query, true) || it.mobile.contains(query, true) }.forEach { customer ->
-                        val due = (saleInvoices.filter { it.partyId == customer.id }.sumOf { (it.totalPaise-it.paidPaise).coerceAtLeast(0L) } - customerPayments.filter { it.partyId == customer.id && it.direction == "IN" && it.invoiceId == null }.sumOf { it.amountPaise }).coerceAtLeast(0L)
+                    partiesMutable.filter { customer: PartyEntity -> customer.name.contains(query, true) || customer.mobile.contains(query, true) }.forEach { customer: PartyEntity ->
+                        val due = (saleInvoices.filter { invoice: InvoiceEntity -> invoice.partyId.toLong() == customer.id.toLong() }.sumOf { (it.totalPaise-it.paidPaise).coerceAtLeast(0L) } - customerPayments.filter { payment: PaymentEntity -> payment.partyId.toLong() == customer.id.toLong() && payment.direction == "IN" && payment.invoiceId == null }.sumOf { it.amountPaise }).coerceAtLeast(0L)
                         val item=TextView(this@MainActivity).apply { text="${customer.name}\n${customer.mobile.ifBlank { "मोबाइल उपलब्ध नहीं" }}  |  बकाया ₹${"%.2f".format(java.util.Locale.US,due/100.0)}"; textSize=14f; setTextColor(0xFF303846.toInt()); setPadding(dp(12),dp(10),dp(12),dp(10)); background=rounded(if(customer.id==selectedPartyId) 0xFFE8F5E9.toInt() else 0xFFF3F5F7.toInt(),12); setOnClickListener { chooseCustomer(customer) } }
                         results.addView(item)
                     }
@@ -2781,7 +2895,7 @@ class MainActivity : AppCompatActivity() {
                 val row = InvoiceLineViews(code, name, qty, rate, gst, hsn, itemId)
                 rows.add(row)
                 val summary = TextView(this@MainActivity).apply {
-                    textSize = 14f; minLines = 2; setPadding(dp(12), dp(10), dp(12), dp(10)); setTextColor(0xFF263238.toInt()); background = rounded(0xFFF2F5F7.toInt(), 10)
+                    textSize = 14f; minLines = 2; setPadding(dp(12), dp(10), dp(12), dp(10)); setTextColor(0xFF172B4D.toInt()); background = rounded(0xFFEFF5FC.toInt(), 10)
                 }
                 row.summary = summary
                 fun refreshSummary() {
@@ -2792,50 +2906,30 @@ class MainActivity : AppCompatActivity() {
                     summary.text = "$index. ${row.name.text}\nमात्रा (Qty): $q     रेट (Rate): ₹${"%.2f".format(r)}\nकुल (Amount): ₹${"%.2f".format(quantity * r)}" + if (kind == "PURCHASE") "     GST: ${row.gst.text}%" else ""
                 }
                 refreshSummary()
-                val itemRowContainer = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(0, 0, 0, dp(8))
-                    addView(summary)
-                    isClickable = true
+                val actions = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
+                val container = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(5)); addView(summary) }
+                val edit = Button(this@MainActivity).apply {
+                    text = "Edit"; isAllCaps = false; minHeight = dp(36)
                     setOnClickListener {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle(row.name.text.toString())
-                            .setItems(arrayOf("Edit Item", "Delete Item", "Cancel")) { dialog, choice ->
-                                when (choice) {
-                                    0 -> {
-                                        draftCode.setText(row.code.text)
-                                        draftName.setText(row.name.text)
-                                        draftQty.setText(row.quantity.text)
-                                        draftRate.setText(row.rate.text)
-                                        draftPurchaseGst.setText(row.gst.text)
-                                        draftHsn.setText(row.hsn.text)
-                                        editingRow = row
-                                        addButton?.text = "बदलाव सेव करें"
-                                        draftName.requestFocus()
-                                        toast("आइटम एडिट करें और बदलाव सेव करें")
-                                    }
-                                    1 -> AlertDialog.Builder(this@MainActivity)
-                                        .setMessage("${row.name.text} हटाएँ?")
-                                        .setNegativeButton("रद्द", null)
-                                        .setPositiveButton("हटाएँ") { _, _ ->
-                                            val rowIndex = rows.indexOf(row)
-                                            rows.remove(row)
-                                            if (rowIndex >= 0) linesBox.removeViewAt(rowIndex)
-                                            refreshItemCount()
-                                            rows.forEachIndexed { i, r ->
-                                                r.summary?.text = r.summary?.text?.toString()
-                                                    ?.replace(Regex("^\\\\d+\\\\."), "${i + 1}.") ?: ""
-                                            }
-                                            if (editingRow === row) {
-                                                editingRow = null
-                                                addButton?.text = "+ आइटम जोड़ें"
-                                            }
-                                        }.show()
-                                }
-                            }.show()
+                        draftCode.setText(row.code.text); draftName.setText(row.name.text); draftQty.setText(row.quantity.text); draftRate.setText(row.rate.text); draftPurchaseGst.setText(row.gst.text); draftHsn.setText(row.hsn.text)
+                        editingRow = row
+                        addButton?.text = "बदलाव सेव करें"
+                        draftName.requestFocus()
+                        toast("आइटम एडिट करें और बदलाव सेव करें")
                     }
                 }
-                linesBox.addView(itemRowContainer)
+                val delete = Button(this@MainActivity).apply {
+                    text = "हटाएँ"; isAllCaps = false; minHeight = dp(36)
+                    setOnClickListener {
+                        AlertDialog.Builder(this@MainActivity).setMessage("${row.name.text} हटाएँ?").setNegativeButton("रद्द", null).setPositiveButton("हटाएँ") { _, _ ->
+                            rows.remove(row); linesBox.removeView(container); refreshItemCount(); rows.forEachIndexed { i, r -> r.summary?.text = r.summary?.text?.toString()?.replace(Regex("^\\d+\\."), "${i + 1}.") ?: "" }
+                            if (editingRow === row) { editingRow = null; addButton?.text = "+ आइटम जोड़ें" }
+                        }.show()
+                    }
+                }
+                actions.addView(edit); actions.addView(delete)
+                container.addView(actions)
+                linesBox.addView(container)
                 refreshItemCount()
                 itemListScroll?.post { itemListScroll?.fullScroll(View.FOCUS_DOWN) }
             }
@@ -3028,8 +3122,18 @@ class MainActivity : AppCompatActivity() {
             box.addView(note)
             if (kind == "PURCHASE") {
                 purchaseAttachmentStatusView = attachmentStatus
+                val attachmentActions = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                val cameraAttachmentButton = Button(this@MainActivity).apply {
+                    text = "📷 कैमरे से फोटो लें"
+                    isAllCaps = false
+                    setOnClickListener { takePurchaseBillPhoto() }
+                }
                 val attachmentButton = Button(this@MainActivity).apply {
-                    text = if (pendingPurchaseAttachmentPath.isBlank()) "सप्लायर बिल की फोटो / PDF जोड़ें" else "दूसरी फोटो / PDF चुनें"
+                    text = if (pendingPurchaseAttachmentPath.isBlank()) "Gallery / PDF चुनें" else "दूसरी फोटो / PDF चुनें"
+                    isAllCaps = false
                     setOnClickListener { choosePurchaseAttachment.launch(arrayOf("image/*", "application/pdf")) }
                 }
                 purchaseAttachmentButtonView = attachmentButton
@@ -3089,7 +3193,9 @@ class MainActivity : AppCompatActivity() {
                     visibility = if (pendingPurchaseAttachmentPath.isNotBlank() && resolvePurchaseAttachment(pendingPurchaseAttachmentPath).isFile) View.VISIBLE else View.GONE
                     setOnClickListener { openPurchaseAttachment(pendingPurchaseAttachmentPath) }
                 }
-                box.addView(attachmentStatus); box.addView(attachmentButton); box.addView(openAttachment); box.addView(scanAttachment); box.addView(removeAttachment)
+                attachmentActions.addView(cameraAttachmentButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
+                attachmentActions.addView(attachmentButton, LinearLayout.LayoutParams(0, dp(48), 1f))
+                box.addView(attachmentStatus); box.addView(attachmentActions); box.addView(openAttachment); box.addView(scanAttachment); box.addView(removeAttachment)
                 purchaseAttachmentOpenButtonView = openAttachment
             }
             // DEV110: one continuous billing canvas. Only the selected customer
@@ -3097,8 +3203,8 @@ class MainActivity : AppCompatActivity() {
             // GST and notes move together in one scrollable area.
             val customerHeader = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(14), dp(10), dp(14), dp(10))
-                setBackgroundColor(0xFFFFFFFF.toInt())
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                setBackgroundColor(0xFFF7F9FC.toInt())
             }
             if (kind == "SALE") salePartyPicker?.let { customerHeader.addView(it) }
             val bodyScroll = ScrollView(this@MainActivity).apply {
@@ -3109,12 +3215,12 @@ class MainActivity : AppCompatActivity() {
             itemListScroll = bodyScroll
             val root = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(0xFFF4F7FC.toInt())
+                setBackgroundColor(0xFFF7F9FC.toInt())
                 val brandBar = LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(18), dp(15), dp(18), dp(15))
-                    setBackgroundColor(0xFF10265B.toInt())
+                    setPadding(dp(16), dp(13), dp(16), dp(13))
+                    setBackgroundColor(0xFF102B4E.toInt())
                 }
                 brandBar.addView(TextView(this@MainActivity).apply {
                     text = "BFP Business Pro"
@@ -3123,7 +3229,7 @@ class MainActivity : AppCompatActivity() {
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 brandBar.addView(TextView(this@MainActivity).apply {
-                    text = if (kind == "SALE") "NEW SALE" else "PURCHASE"
+                    text = "BILLING"
                     textSize = 12f
                     setTextColor(0xFFFFFFFF.toInt())
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -3211,7 +3317,20 @@ class MainActivity : AppCompatActivity() {
                             } else repo.update(existing.id, input)
                             invoiceSaved = true
                             if (existing != null && existing.attachmentPath.isNotBlank() && existing.attachmentPath != input.attachmentPath) resolvePurchaseAttachment(existing.attachmentPath).delete()
-                            withContext(Dispatchers.Main) { toast("बिल सेव हो गया"); dialog.dismiss() }
+                            withContext(Dispatchers.Main) {
+                                toast("बिल सेव हो गया"); dialog.dismiss()
+                                if (kind == "SALE") {
+                                    val savedInvoice = withContext(Dispatchers.IO) {
+                                        db.dao().observeInvoices("SALE").first().firstOrNull { it.invoiceNumber == input.invoiceNumber }
+                                    }
+                                    if (savedInvoice != null) AlertDialog.Builder(this@MainActivity)
+                                        .setTitle("बिल सेव हो गया")
+                                        .setMessage("क्या इस बिल की PDF कॉपी अभी WhatsApp पर ग्राहक को भेजने के लिए खोलें?")
+                                        .setNegativeButton("बाद में", null)
+                                        .setPositiveButton("WhatsApp खोलें") { _, _ -> lifecycleScope.launch { shareInvoicePdf(savedInvoice) } }
+                                        .show()
+                                }
+                            }
                         } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "बिल सेव नहीं हुआ") } } }
                     }.show()
                 }

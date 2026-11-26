@@ -55,8 +55,8 @@ A successful source-level regression suite is not the same as a successful Andro
 - Run offline checks with `python3 tools/verify_all.py`.
 
 
-## DEV112 final source package (5.57.0 / 557)
+## Development 113 (5.58.0)
 
-This package is based on the DEV111 approved billing source. DEV112 adds atomic whole-invoice deletion: linked payments are deleted with the selected invoice, stock is reversed, and unlinked party payments remain untouched. The sale GST checkbox remains optional (default 5% for new sales); purchase GST remains item-wise.
-
-Run `python3 tools/verify_all.py` for offline/source regression checks. GitHub Actions workflow `.github/workflows/android-build.yml` runs the source checks, Android unit tests, lint, and builds an unsigned debug APK artifact. Android build and device testing must pass in GitHub Actions before installing for business use.
+- Main dashboard refreshed to the approved BFP card-based visual direction, with navy brand header, live sales/purchase/cash/outstanding figures, receivables/payables and quick actions.
+- No database schema migration. Billing workflows and accounting repositories retained.
+- See `DEVELOPMENT-113-DASHBOARD-UI-REDESIGN.md`.

@@ -12,7 +12,7 @@ checks = {
     'stock movement total reconciled against current stock': 'movementNet - item.quantity' in ledger,
     'financial audit accessible from reports': 'Complete Business Financial Audit / समग्र वित्तीय ऑडिट' in main and 'showBusinessFinancialAudit()' in main,
     'report explicitly read-only and states scope limits': 'कोई स्वतः बदलाव नहीं करता' in main and 'वास्तविक बैंक स्टेटमेंट सत्यापन' in main,
-    'version 5.43.0 / 538': 'versionCode = 557' in gradle and 'versionName = "5.57.0"' in gradle,
+    'version 5.43.0 / 538': 'versionCode = 562' in gradle and 'versionName = "5.62.0"' in gradle,
     'Room schema unchanged at 10': 'version = 10' in db,
 }
 for name, ok in checks.items(): print(('PASS' if ok else 'FAIL') + ': ' + name)
