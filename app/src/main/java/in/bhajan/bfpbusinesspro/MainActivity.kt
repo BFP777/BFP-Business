@@ -3095,7 +3095,15 @@ class MainActivity : AppCompatActivity() {
                 parsed.third?.let { draftRate.setText(it) }
                 if (parsed.third != null) {
                     val added = commitDraftLine()
-                    if (added) { voiceStatus?.text = "${rows.size} आइटम जुड़ीं — अगली बोलें"; toast("जुड़ गया: ${parsed.first} | मात्रा ${parsed.second ?: "1"} | रेट ₹${parsed.third}") }
+                    if (added) {
+                        // DEV129: after each completed voice item, keep the next
+                        // entry in the editor (not inside/under the previous row).
+                        draftQty.requestFocus()
+                        draftQty.setSelection(draftQty.text.length)
+                        entryBox.post { itemListScroll?.smoothScrollTo(0, entryBox.top) }
+                        voiceStatus?.text = "${rows.size} आइटम जुड़ीं — अगली आइटम बोलें"
+                        toast("जुड़ गया: ${parsed.first} | मात्रा ${parsed.second ?: "1"} | रेट ₹${parsed.third} — अगली आइटम बोलें")
+                    }
                 } else { voiceStatus?.text = "रेट समझ नहीं आया — रेट भरकर जोड़ें"; toast("रेट जाँचकर आइटम जोड़ें") }
             }
             fun stopContinuousVoice() {
@@ -3206,8 +3214,17 @@ class MainActivity : AppCompatActivity() {
             }
             addButton = add
             val saveAndNew = Button(this@MainActivity).apply {
-                text = "Save & New"; isAllCaps = false
-                setOnClickListener { if (commitDraftLine()) { draftName.requestFocus(); toast("अगला आइटम दर्ज करें") } }
+                text = "Next Item"; isAllCaps = false
+                setOnClickListener {
+                    if (commitDraftLine()) {
+                        // commitDraftLine clears the previous draft; start the
+                        // next item in the same editor and bring it into view.
+                        draftQty.requestFocus()
+                        draftQty.setSelection(draftQty.text.length)
+                        entryBox.post { itemListScroll?.smoothScrollTo(0, entryBox.top) }
+                        toast("अगली आइटम के लिए Qty, Item Name और Rate भरें")
+                    }
+                }
             }
             itemActions.addView(add, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
             itemActions.addView(saveAndNew, LinearLayout.LayoutParams(0, dp(48), 1f))
