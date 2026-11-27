@@ -3009,7 +3009,7 @@ class MainActivity : AppCompatActivity() {
                 val gst = editField("", gstRate.toString()).apply { visibility = View.GONE }
                 val hsn = editField("", hsnCode).apply { visibility = View.GONE }
                 val row = InvoiceLineViews(code, name, qty, rate, gst, hsn, itemId)
-                rows.add(row)
+                rows.add(0, row)
                 val summary = TextView(this@MainActivity).apply {
                     textSize = 14f; minLines = 2; setPadding(dp(12), dp(10), dp(12), dp(10)); setTextColor(0xFF172B4D.toInt()); background = rounded(0xFFEFF5FC.toInt(), 10)
                 }
@@ -3045,9 +3045,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 actions.addView(edit); actions.addView(delete)
                 container.addView(actions)
-                linesBox.addView(container)
+                linesBox.addView(container, 0)
+                rows.forEachIndexed { i, r -> r.summary?.text = r.summary?.text?.toString()?.replace(Regex("^\\d+\\."), "${i + 1}.") ?: "" }
                 refreshItemCount()
-                itemListScroll?.post { itemListScroll?.fullScroll(View.FOCUS_DOWN) }
+                itemListScroll?.post { itemListScroll?.smoothScrollTo(0, linesBox.top) }
             }
             fun commitDraftLine(): Boolean {
                 val n = draftName.text.toString().trim(); val q = draftQty.text.toString().trim().toDoubleOrNull(); val r = draftRate.text.toString().trim().toDoubleOrNull()
@@ -3100,7 +3101,7 @@ class MainActivity : AppCompatActivity() {
                         // entry in the editor (not inside/under the previous row).
                         draftQty.requestFocus()
                         draftQty.setSelection(draftQty.text.length)
-                        entryBox.post { itemListScroll?.smoothScrollTo(0, entryBox.top) }
+                        itemListScroll?.post { itemListScroll?.smoothScrollTo(0, linesBox.top) }
                         voiceStatus?.text = "${rows.size} आइटम जुड़ीं — अगली आइटम बोलें"
                         toast("जुड़ गया: ${parsed.first} | मात्रा ${parsed.second ?: "1"} | रेट ₹${parsed.third} — अगली आइटम बोलें")
                     }
@@ -3221,7 +3222,7 @@ class MainActivity : AppCompatActivity() {
                         // next item in the same editor and bring it into view.
                         draftQty.requestFocus()
                         draftQty.setSelection(draftQty.text.length)
-                        entryBox.post { itemListScroll?.smoothScrollTo(0, entryBox.top) }
+                        itemListScroll?.post { itemListScroll?.smoothScrollTo(0, linesBox.top) }
                         toast("अगली आइटम के लिए Qty, Item Name और Rate भरें")
                     }
                 }
@@ -3657,13 +3658,19 @@ class MainActivity : AppCompatActivity() {
 
     /** Splits a spoken item phrase into an item name and an optional trailing price. */
     private fun parseVoiceItemPhrase(raw: String): Triple<String, String?, String?> {
-        val originalTokens = raw.replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        val digitNormalized = raw.map { ch ->
+            when (ch) { '०' -> '0'; '१' -> '1'; '२' -> '2'; '३' -> '3'; '४' -> '4'; '५' -> '5'; '६' -> '6'; '७' -> '7'; '८' -> '8'; '९' -> '9'; else -> ch }
+        }.joinToString("")
+        val originalTokens = digitNormalized.replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
         val tokens = originalTokens.map { it.lowercase(java.util.Locale.ROOT) }
+        val quantityMarkers = setOf("quantity", "qty", "मात्रा", "क्वांटिटी")
+        val itemMarkers = setOf("item", "आइटम", "नाम")
+        val rateMarkers = setOf("rate", "रेट", "price", "प्राइस", "कीमत")
         val small = mapOf(
             "zero" to 0L, "oh" to 0L, "one" to 1L, "two" to 2L, "three" to 3L, "four" to 4L, "five" to 5L, "six" to 6L, "seven" to 7L, "eight" to 8L, "nine" to 9L,
             "ten" to 10L, "eleven" to 11L, "twelve" to 12L, "thirteen" to 13L, "fourteen" to 14L, "fifteen" to 15L, "sixteen" to 16L, "seventeen" to 17L, "eighteen" to 18L, "nineteen" to 19L,
             "बीस" to 20L, "इक्कीस" to 21L, "बाईस" to 22L, "तेईस" to 23L, "चौबीस" to 24L, "पच्चीस" to 25L, "तीस" to 30L, "चालीस" to 40L, "पचास" to 50L, "साठ" to 60L, "सत्तर" to 70L, "अस्सी" to 80L, "नब्बे" to 90L,
-            "एक" to 1L, "दो" to 2L, "तीन" to 3L, "चार" to 4L, "पांच" to 5L, "पाँच" to 5L, "छह" to 6L, "सात" to 7L, "आठ" to 8L, "नौ" to 9L, "दस" to 10L, "ग्यारह" to 11L, "बारह" to 12L, "तेरह" to 13L, "चौदह" to 14L, "पंद्रह" to 15L, "सोलह" to 16L, "सत्रह" to 17L, "अठारह" to 18L, "उन्नीस" to 19L
+            "एक" to 1L, "दो" to 2L, "तीन" to 3L, "चार" to 4L, "पांच" to 5L, "पाँच" to 5L, "छह" to 6L, "छः" to 6L, "सात" to 7L, "आठ" to 8L, "नौ" to 9L, "दस" to 10L, "ग्यारह" to 11L, "बारह" to 12L, "तेरह" to 13L, "चौदह" to 14L, "पंद्रह" to 15L, "सोलह" to 16L, "सत्रह" to 17L, "अठारह" to 18L, "उन्नीस" to 19L
         )
         val tens = mapOf("twenty" to 20L, "thirty" to 30L, "forty" to 40L, "fifty" to 50L, "sixty" to 60L, "seventy" to 70L, "eighty" to 80L, "ninety" to 90L)
         val currency = setOf("rupee", "rupees", "rs", "inr", "रुपया", "रुपये", "रुपए", "रूपये", "रूपए", "रु")
@@ -3683,16 +3690,37 @@ class MainActivity : AppCompatActivity() {
             }
             return (total + current).takeIf { it > 0.0 && it <= 100000000.0 }
         }
+        val qMarker = tokens.indexOfFirst { it in quantityMarkers }
+        val rMarker = tokens.indexOfFirst { it in rateMarkers }
+        var quantity: Double? = null
         var qEnd = 0
-        while (qEnd < tokens.size && numeric(tokens[qEnd])) qEnd++
-        val quantity = if (qEnd > 0) parseNumber(tokens.subList(0, qEnd)) else null
+        if (qMarker >= 0) {
+            val qWords = tokens.drop(qMarker + 1).takeWhile { numeric(it) || it == "and" || it == "और" }
+            quantity = parseNumber(qWords)
+            qEnd = qMarker + 1 + qWords.size
+        } else {
+            while (qEnd < tokens.size && numeric(tokens[qEnd])) qEnd++
+            quantity = if (qEnd > 0) parseNumber(tokens.subList(0, qEnd)) else null
+        }
+        var rate: Double? = null
         var rateStart = tokens.size
-        var i = tokens.lastIndex
-        while (i >= qEnd && (numeric(tokens[i]) || tokens[i] in currency || tokens[i] == "and" || tokens[i] == "और")) { rateStart = i; i-- }
-        val rateWords = if (rateStart < tokens.size) tokens.subList(rateStart, tokens.size) else emptyList()
-        val rate = parseNumber(rateWords)
+        if (rMarker >= 0) {
+            val rWords = tokens.drop(rMarker + 1).takeWhile { numeric(it) || it in currency || it == "and" || it == "और" }
+            rate = parseNumber(rWords)
+            rateStart = rMarker
+        } else {
+            var i = tokens.lastIndex
+            while (i >= qEnd && (numeric(tokens[i]) || tokens[i] in currency || tokens[i] == "and" || tokens[i] == "और")) { rateStart = i; i-- }
+            val rateWords = if (rateStart < tokens.size) tokens.subList(rateStart, tokens.size) else emptyList()
+            rate = parseNumber(rateWords)
+        }
+        val itemStart = if (qMarker >= 0) qEnd else qEnd
         val itemEnd = if (rate != null) rateStart else tokens.size
-        val item = originalTokens.drop(qEnd).take((itemEnd - qEnd).coerceAtLeast(0)).joinToString(" ").trim()
+        val itemTokens = originalTokens.indices.filter { idx ->
+            idx >= itemStart && idx < itemEnd && tokens[idx] !in itemMarkers &&
+                tokens[idx] !in quantityMarkers && tokens[idx] !in rateMarkers
+        }.map { originalTokens[it] }
+        val item = itemTokens.joinToString(" ").trim()
         return Triple(item.ifBlank { raw.trim() }, quantity?.toString()?.removeSuffix(".0"), rate?.let { String.format(java.util.Locale.US, "%.2f", it).trimEnd('0').trimEnd('.') })
     }
 
