@@ -6,7 +6,7 @@ backup = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/DatabaseBack
 history = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/BackupHistory.kt').read_text()
 worker = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/backup/AutoBackupWorker.kt').read_text()
 checks = {
-    'version 5.44.0 / 544': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    'version 5.44.0 / 544': 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
     'backup history bounded to 20 records': 'minOf(old.length(), 19)' in history,
     'backup history shows newest records': 'Backup History (नवीनतम 10)' in history,
     'manual backup success/failure recorded': 'BackupHistory.record(this, "Manual"' in main,
@@ -17,7 +17,7 @@ checks = {
     'preview reports attachment count and bytes': 'attachmentCount: Int' in backup and 'files.sumOf { it.length() }' in backup,
     'restore requires explicit preview confirmation': 'Restore Preview – पुष्टि करें' in main and 'DatabaseBackup.preview(this, uri)' in main,
     'preview does not mutate live database': 'fun preview(context: Context, sourceUri: Uri)' in backup and 'BfpDatabase.closeForMaintenance()' not in backup[backup.index('fun preview(context: Context, sourceUri: Uri)'):backup.index('fun restore(context: Context, sourceUri: Uri)')],
-    'room schema remains 10': 'version = 10' in (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt').read_text(),
+    'room schema remains 10': 'version = 11' in (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt').read_text(),
 }
 for label, ok in checks.items(): print(('PASS' if ok else 'FAIL') + ': ' + label)
 if not all(checks.values()): raise SystemExit(1)

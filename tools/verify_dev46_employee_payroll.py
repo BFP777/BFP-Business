@@ -13,7 +13,7 @@ checks = {
     'employee master entity': '@Entity(tableName = "employees")' in entities,
     'unique employee-month payroll': 'Index(value = ["employeeId", "monthKey"], unique = true)' in entities,
     'salary payment records have mode and bank account': 'val mode: String, // CASH, UPI, BANK' in entities and 'val bankAccountId: Long? = null' in entities,
-    'non-destructive payroll schema v7 migration retained': 'Migration(6, 7)' in db and 'MIGRATION_6_7' in db and 'version = 10' in db and 'MIGRATION_7_8' in db,
+    'non-destructive payroll schema v7 migration retained': 'Migration(6, 7)' in db and 'MIGRATION_6_7' in db and 'version = 11' in db and 'MIGRATION_7_8' in db,
     'DAO employee and payroll access': 'observeEmployees()' in dao and 'observeSalaryPayments()' in dao and 'sumSalaryPayments' in dao,
     'salary month format validated': 'Regex("\\\\d{4}-(0[1-9]|1[0-2])")' in repo,
     'partial salary cannot exceed monthly payable': 'alreadyPaid + input.amountPaise <= month.payablePaise' in repo,

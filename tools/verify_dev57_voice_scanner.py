@@ -15,8 +15,8 @@ checks = {
     'Scanned code resolves through existing Item Master DAO': 'db.dao().getItemByCode(normalized)' in main,
     'Scanner module metadata': 'android:value="barcode_ui"' in manifest,
     'No direct camera permission': 'android.permission.CAMERA' not in manifest,
-    'No Room migration/schema bump': 'Room schema: 9 (no database migration required)' in notes,
-    'Version 5.14.0': 'versionName = "5.64.0"' in gradle and 'versionCode = 564' in gradle,
+    'No Room migration/schema bump': 'Room schema: 11 (transaction scheduling migration)' in notes,
+    'Version 5.14.0': 'versionName = "5.65.0"' in gradle and 'versionCode = 565' in gradle,
 }
 for name, ok in checks.items():
     print(f'{name}: {"PASS" if ok else "FAIL"}')

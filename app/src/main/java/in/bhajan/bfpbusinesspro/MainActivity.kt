@@ -1683,7 +1683,7 @@ class MainActivity : AppCompatActivity() {
             val note = editField("Note (optional)", "")
             box.addView(TextView(this@MainActivity).apply { text = "From Bank Account" }); box.addView(from)
             box.addView(TextView(this@MainActivity).apply { text = "To Bank Account" }); box.addView(to)
-            box.addView(amount); box.addView(note)
+            box.addView(paymentDateButton); box.addView(amount); box.addView(note)
             AlertDialog.Builder(this@MainActivity).setTitle("Bank to Bank Transfer").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create().also { dialog ->
                 dialog.setOnShowListener {
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -2443,7 +2443,7 @@ class MainActivity : AppCompatActivity() {
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         page.addView(list)
         lifecycleScope.launch {
-            db.dao().observePayments().collectLatest { payments ->
+            db.dao().observeAllPayments().collectLatest { payments ->
                 list.removeAllViews()
                 val filtered = payments.filter { it.direction == direction }
                 if (filtered.isEmpty()) list.addView(emptyLabel("अभी कोई भुगतान एंट्री नहीं है"))
@@ -2451,7 +2451,12 @@ class MainActivity : AppCompatActivity() {
                     val partyName = withContext(Dispatchers.IO) { db.dao().observeParties().first().firstOrNull { it.id == payment.partyId }?.name ?: "पार्टी #${payment.partyId}" }
                     val billText = payment.invoiceId?.let { "\nबिल #$it" } ?: "\nबिना बिल से लिंक"
                     val bankName = payment.bankAccountId?.let { id -> withContext(Dispatchers.IO) { db.dao().getBankAccount(id)?.accountName } }
-                    list.addView(card("$partyName\nरकम: ₹${payment.amountPaise / 100.0} | माध्यम: ${payment.mode}${bankName?.let { " ($it)" }.orEmpty()}$billText\n${java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale("hi", "IN")).format(java.util.Date(payment.dateEpochMillis))}"))
+                    val statusLabel = if (payment.status == "SCHEDULED") "\nस्थिति: SCHEDULED / PENDING" else ""
+                    list.addView(card("$partyName\nरकम: ₹${payment.amountPaise / 100.0} | माध्यम: ${payment.mode}${bankName?.let { " ($it)" }.orEmpty()}$billText\n${java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale("hi", "IN")).format(java.util.Date(payment.dateEpochMillis))}$statusLabel"))
+                    if (payment.status == "SCHEDULED") addAction(list, "Mark as Paid", 0xFF2E8B57.toInt()) {
+                        AlertDialog.Builder(this@MainActivity).setMessage("क्या यह भुगतान वास्तव में हो गया है? तभी Cash / Bank और पार्टी Ledger में दर्ज होगा।")
+                            .setNegativeButton("अभी नहीं", null).setPositiveButton("हाँ, Paid करें") { _, _ -> lifecycleScope.launch(Dispatchers.IO) { try { PaymentRepository(db).markPaid(payment.id); withContext(Dispatchers.Main) { toast("भुगतान Paid दर्ज हो गया") } } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "अपडेट नहीं हुआ") } } } }.show()
+                    }
                     addAction(list, "Edit / Delete", 0xFF607D8B.toInt()) {
                         AlertDialog.Builder(this@MainActivity).setItems(arrayOf("Edit", "Delete")) { _, choice ->
                             if (choice == 0) paymentDialog(direction, payment)
@@ -2488,6 +2493,17 @@ class MainActivity : AppCompatActivity() {
             }
             val amount = editField("रकम (₹)", existing?.amountPaise?.div(100.0)?.toString().orEmpty())
             val note = editField("नोट", existing?.note.orEmpty())
+            var selectedPaymentDateMillis = existing?.dateEpochMillis ?: System.currentTimeMillis()
+            val paymentDateButton = Button(this@MainActivity).apply { isAllCaps = false }
+            fun refreshPaymentDate() { paymentDateButton.text = "📅 Payment Date: " + java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.US).format(java.util.Date(selectedPaymentDateMillis)) }
+            paymentDateButton.setOnClickListener {
+                val c = java.util.Calendar.getInstance().apply { timeInMillis = selectedPaymentDateMillis }
+                DatePickerDialog(this@MainActivity, { _, y, m, d ->
+                    selectedPaymentDateMillis = java.util.Calendar.getInstance().apply { set(y, m, d, 12, 0, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+                    refreshPaymentDate()
+                }, c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).show()
+            }
+            refreshPaymentDate()
             box.addView(TextView(this@MainActivity).apply { text = "पार्टी" }); box.addView(party)
             box.addView(TextView(this@MainActivity).apply { text = "संबंधित बिल (वैकल्पिक)" }); box.addView(bill)
             box.addView(TextView(this@MainActivity).apply { text = "भुगतान माध्यम" }); box.addView(mode)
@@ -2502,7 +2518,9 @@ class MainActivity : AppCompatActivity() {
                 val selectedMode = mode.selectedItem.toString()
                 if (selectedMode == "BANK" && bankAccounts.isEmpty()) { toast("पहले Bank Accounts में बैंक का नाम जोड़ें"); return@setOnClickListener }
                 val selectedBankId = if (selectedMode == "BANK") bankAccounts.getOrNull(bank.selectedItemPosition)?.id else null
-                val input = PaymentRepository.PaymentInput(parties[party.selectedItemPosition].id, selectedInvoice?.id, direction, selectedMode, (value * 100).toLong(), existing?.dateEpochMillis ?: System.currentTimeMillis(), note.text.toString(), selectedBankId)
+                val todayStart = java.util.Calendar.getInstance().apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+                val paymentStatus = if (direction == "OUT" && selectedPaymentDateMillis > todayStart + 86_400_000L - 1L) "SCHEDULED" else "PAID"
+                val input = PaymentRepository.PaymentInput(parties[party.selectedItemPosition].id, selectedInvoice?.id, direction, selectedMode, (value * 100).toLong(), selectedPaymentDateMillis, note.text.toString(), selectedBankId, paymentStatus)
                 lifecycleScope.launch(Dispatchers.IO) { try { val repo = PaymentRepository(db); if (existing == null) repo.create(input) else repo.update(existing.id, input); withContext(Dispatchers.Main) { toast("भुगतान सेव हो गया"); dialog.dismiss() } } catch (e: Exception) { withContext(Dispatchers.Main) { toast(e.message ?: "भुगतान सेव नहीं हुआ") } } }
             } }
             dialog.show()
@@ -2735,13 +2753,26 @@ class MainActivity : AppCompatActivity() {
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 setTextColor(0xFF102B4E.toInt())
             }, LinearLayout.LayoutParams(0, -2, 1f))
-            billHeading.addView(TextView(this@MainActivity).apply {
-                text = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
-                textSize = 13f
-                setTextColor(0xFF455A64.toInt())
-                setPadding(dp(8), dp(6), dp(8), dp(6))
-                background = rounded(0xFFEAF1FA.toInt(), 8)
-            })
+            var selectedInvoiceDateMillis = existing?.dateEpochMillis ?: java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val invoiceDateButton = Button(this@MainActivity).apply {
+                isAllCaps = false; textSize = 13f; setTextColor(0xFF455A64.toInt())
+                setPadding(dp(8), dp(4), dp(8), dp(4)); background = rounded(0xFFEAF1FA.toInt(), 8)
+            }
+            fun refreshInvoiceDateLabel() {
+                invoiceDateButton.text = "📅 " + java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(selectedInvoiceDateMillis))
+            }
+            fun openInvoiceDatePicker() {
+                val c = java.util.Calendar.getInstance().apply { timeInMillis = selectedInvoiceDateMillis }
+                DatePickerDialog(this@MainActivity, { _, y, m, d ->
+                    selectedInvoiceDateMillis = java.util.Calendar.getInstance().apply { set(y, m, d, 12, 0, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+                    refreshInvoiceDateLabel()
+                }, c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH)).show()
+            }
+            refreshInvoiceDateLabel()
+            invoiceDateButton.setOnClickListener { openInvoiceDatePicker() }
+            billHeading.addView(invoiceDateButton)
             box.addView(billHeading)
             // New sales default to CREDIT; CASH creates an immediate cash receipt.
             var saleSettlementMode = "CREDIT"
@@ -3364,7 +3395,7 @@ class MainActivity : AppCompatActivity() {
                 val buyerState = if (kind == "SALE") selectedCounterState else businessProfile.stateCode
                 val input = InvoiceRepository.InvoiceInput(
                     invoiceNumber = number.text.toString(), partyId = selectedParty.id, kind = kind,
-                    dateEpochMillis = existing?.dateEpochMillis ?: System.currentTimeMillis(),
+                    dateEpochMillis = selectedInvoiceDateMillis,
                     discountPaise = kotlin.math.round(d * 100).toLong(), taxPaise = 0,
                     note = note.text.toString(), sellerStateCode = sellerState, buyerStateCode = buyerState,
                     lines = lineInputs,

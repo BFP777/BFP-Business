@@ -15,8 +15,8 @@ checks={
 "trend compares recent and previous period":"recent > previous" in main and "recent < previous" in main,
 "reorder suggestion considers minimum stock and current stock":"minimumStockQuantity" in main and "projected + safetyBuffer - row.item.quantity" in main,
 "screen warns forecast is not guaranteed and no auto purchase":"गारंटी" in main and "कोई स्टॉक/खरीद एंट्री अपने-आप नहीं बनेगी" in main,
-"database schema remains version 9":"version = 10" in db,
-"app version advanced to 5.17.0 / 517":'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+"database schema remains version 9":"version = 11" in db,
+"app version advanced to 5.17.0 / 517":'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
 }
 for k,v in checks.items():print(("PASS" if v else "FAIL")+": "+k)
 assert all(checks.values()),"Dev62 checks failed"

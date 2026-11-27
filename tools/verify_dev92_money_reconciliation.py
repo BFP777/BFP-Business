@@ -10,8 +10,8 @@ checks = {
     'overall bank balance compared with named account totals': 'bank != accountTotal' in ledger and 'bankAccountBalancePaise(it.id)' in ledger,
     'reconciliation action available in Bank screen': 'Cash / Bank Reconciliation जाँचें' in main and 'showMoneyReconciliation()' in main,
     'report explicitly does not auto-edit balances': 'कोई एंट्री या बैलेंस अपने-आप नहीं बदलेगा' in main,
-    'version 5.43.0 / 537': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
-    'Room schema remains version 10': 'version = 10' in db,
+    'version 5.43.0 / 537': 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
+    'Room schema remains version 10': 'version = 11' in db,
 }
 for name, ok in checks.items():
     print(('PASS' if ok else 'FAIL') + ': ' + name)

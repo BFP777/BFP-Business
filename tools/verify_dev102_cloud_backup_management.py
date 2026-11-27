@@ -5,8 +5,8 @@ manager = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/backup/CloudBackup
 main = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt").read_text()
 db = (root / "app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt").read_text()
 checks = {
-    "version 5.47.0 / 547": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
-    "Room schema remains 10": "version = 10" in db,
+    "version 5.47.0 / 547": 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
+    "Room schema remains 10": "version = 11" in db,
     "cloud folder backups are listed by SAF tree": "DocumentFile.fromTreeUri" in manager and "root.listFiles()" in manager,
     "only recognized BFP ZIP backup names are managed": "BFP-Auto-Backup-" in manager and "BFP-Backup-" in manager and 'endsWith(".zip"' in manager,
     "backup listing includes size and modified date": "it.length()" in manager and "it.lastModified()" in manager,

@@ -10,7 +10,7 @@ checks = {
     "unallocated receipts and payments are reported separately": "unallocatedReceiptPaise" in repo and "unallocatedPaymentPaise" in repo,
     "ledger UI shows audit summary and issues": "LEDGER AUDIT / खाता मिलान" in activity and "audit.issues.forEach" in activity,
     "no opening balance field invented": "openingBalancePaise" not in (ROOT / "app/src/main/java/in/bhajan/bfpbusinesspro/data/Entities.kt").read_text(),
-    "version 5.43.0 / 537": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    "version 5.43.0 / 537": 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
 }
 for label, ok in checks.items():
     print(("PASS" if ok else "FAIL") + " — " + label)

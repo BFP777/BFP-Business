@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PartyEntity::class, ItemEntity::class, InvoiceEntity::class, InvoiceLineEntity::class, PaymentEntity::class, CashEntryEntity::class, BusinessProfileEntity::class, BankAccountEntity::class, EmployeeEntity::class, SalaryMonthEntity::class, SalaryPaymentEntity::class, StockMovementEntity::class],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class BfpDatabase : RoomDatabase() {
@@ -74,10 +74,15 @@ abstract class BfpDatabase : RoomDatabase() {
                 database.execSQL("INSERT INTO stock_movements (itemId, movementType, quantityDelta, previousQuantity, newQuantity, reason, dateEpochMillis, reference) SELECT id, 'OPENING', quantity, 0.0, quantity, 'मौजूदा स्टॉक — अपडेट के समय', CAST(strftime('%s','now') AS INTEGER) * 1000, '' FROM items WHERE quantity > 0")
             }
         }
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE payments ADD COLUMN status TEXT NOT NULL DEFAULT 'PAID'")
+            }
+        }
         @Volatile private var INSTANCE: BfpDatabase? = null
         fun get(context: Context): BfpDatabase = INSTANCE ?: synchronized(this) {
             INSTANCE ?: Room.databaseBuilder(context.applicationContext, BfpDatabase::class.java, "bfp_business_pro_5.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build().also { INSTANCE = it }
         }
 

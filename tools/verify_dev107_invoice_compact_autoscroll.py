@@ -10,8 +10,8 @@ checks = {
     "mobile and outstanding are not rendered in selected header": 'मोबाइल:' not in source[source.find('fun chooseCustomer(customer: PartyEntity)'):source.find('fun addCustomerInline()')],
     "item list scrolls to newest row after add": "itemListScroll?.post { itemListScroll?.fullScroll(View.FOCUS_DOWN) }" in source,
     "item counter remains available": 'itemCountButton.text = "${rows.size} आइटम"' in source,
-    "Room schema remains unchanged": "version = 10" in db,
-    "app version is 5.52.0 / 552": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    "Room schema remains unchanged": "version = 11" in db,
+    "app version is 5.52.0 / 552": 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
 }
 for label, ok in checks.items():
     print(("PASS" if ok else "FAIL") + ": " + label)

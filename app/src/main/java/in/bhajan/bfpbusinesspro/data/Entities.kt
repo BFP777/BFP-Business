@@ -186,7 +186,8 @@ data class PaymentEntity(
     val amountPaise: Long,
     val dateEpochMillis: Long,
     val note: String = "",
-    val bankAccountId: Long? = null
+    val bankAccountId: Long? = null,
+    val status: String = "PAID" // PAID or SCHEDULED
 )
 
 @Entity(tableName = "cash_entries")

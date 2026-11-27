@@ -15,24 +15,29 @@ class PaymentRepository(private val database: BfpDatabase) {
         val amountPaise: Long,
         val dateEpochMillis: Long = System.currentTimeMillis(),
         val note: String = "",
-        val bankAccountId: Long? = null
+        val bankAccountId: Long? = null,
+        val status: String = "PAID"
     )
 
     suspend fun create(input: PaymentInput): Long = database.withTransaction {
         validate(input)
+        require(input.status in setOf("PAID", "SCHEDULED")) { "भुगतान स्थिति गलत है" }
+        require(input.status != "SCHEDULED" || input.direction == "OUT") { "केवल Payment Out को Schedule किया जा सकता है" }
         val id = dao.insertPayment(input.toEntity())
-        input.invoiceId?.let { refreshInvoicePaid(it) }
+        if (input.status == "PAID") input.invoiceId?.let { refreshInvoicePaid(it) }
         id
     }
 
     suspend fun update(paymentId: Long, input: PaymentInput) = database.withTransaction {
         val old = dao.getPayment(paymentId) ?: error("भुगतान एंट्री नहीं मिली")
         validate(input, paymentId)
+        require(input.status in setOf("PAID", "SCHEDULED")) { "भुगतान स्थिति गलत है" }
+        require(input.status != "SCHEDULED" || input.direction == "OUT") { "केवल Payment Out को Schedule किया जा सकता है" }
         dao.updatePayment(old.copy(
             partyId = input.partyId, invoiceId = input.invoiceId,
             direction = input.direction, mode = input.mode,
             amountPaise = input.amountPaise, dateEpochMillis = input.dateEpochMillis,
-            note = input.note, bankAccountId = input.bankAccountId
+            note = input.note, bankAccountId = input.bankAccountId, status = input.status
         ))
         (listOfNotNull(old.invoiceId, input.invoiceId)).distinct().forEach { refreshInvoicePaid(it) }
     }
@@ -40,6 +45,13 @@ class PaymentRepository(private val database: BfpDatabase) {
     suspend fun delete(paymentId: Long) = database.withTransaction {
         val old = dao.getPayment(paymentId) ?: return@withTransaction
         dao.deletePayment(old)
+        if (old.status == "PAID") old.invoiceId?.let { refreshInvoicePaid(it) }
+    }
+
+    suspend fun markPaid(paymentId: Long, paidDateEpochMillis: Long = System.currentTimeMillis()) = database.withTransaction {
+        val old = dao.getPayment(paymentId) ?: error("भुगतान एंट्री नहीं मिली")
+        require(old.status == "SCHEDULED") { "यह भुगतान पहले से Paid है" }
+        dao.updatePayment(old.copy(status = "PAID", dateEpochMillis = paidDateEpochMillis))
         old.invoiceId?.let { refreshInvoicePaid(it) }
     }
 
@@ -65,10 +77,12 @@ class PaymentRepository(private val database: BfpDatabase) {
             require((invoice.kind == "SALE" && input.direction == "IN") || (invoice.kind == "PURCHASE" && input.direction == "OUT")) {
                 "SALE में Payment In और PURCHASE में Payment Out ही मान्य है"
             }
-            val oldPayment = editingId?.let { dao.getPayment(it) }
-            val amountToSubtract = if (oldPayment?.invoiceId == invoice.id) oldPayment.amountPaise else 0L
-            val alreadyPaid = dao.sumInvoicePayments(invoice.id) - amountToSubtract
-            require(alreadyPaid + input.amountPaise <= invoice.totalPaise) { "भुगतान बिल की बाकी राशि से अधिक है" }
+            if (input.status == "PAID") {
+                val oldPayment = editingId?.let { dao.getPayment(it) }
+                val amountToSubtract = if (oldPayment?.invoiceId == invoice.id && oldPayment.status == "PAID") oldPayment.amountPaise else 0L
+                val alreadyPaid = dao.sumInvoicePayments(invoice.id) - amountToSubtract
+                require(alreadyPaid + input.amountPaise <= invoice.totalPaise) { "भुगतान बिल की बाकी राशि से अधिक है" }
+            }
         }
     }
 
@@ -82,6 +96,6 @@ class PaymentRepository(private val database: BfpDatabase) {
     private fun PaymentInput.toEntity() = PaymentEntity(
         partyId = partyId, invoiceId = invoiceId, direction = direction,
         mode = mode, amountPaise = amountPaise,
-        dateEpochMillis = dateEpochMillis, note = note, bankAccountId = bankAccountId
+        dateEpochMillis = dateEpochMillis, note = note, bankAccountId = bankAccountId, status = status
     )
 }

@@ -27,7 +27,7 @@ assert "minSdk = 24" in app_gradle
 assert "targetSdk = 35" in app_gradle
 
 # Room migrations remain explicit and destructive fallback stays disabled.
-assert "version = 10" in db
+assert "version = 11" in db
 assert ".addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)" in db
 assert "fallbackToDestructiveMigration" not in db
 

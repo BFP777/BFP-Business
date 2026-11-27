@@ -17,6 +17,7 @@ SCRIPTS = [
     "tools/verify_dev45_purchase_attachments.py",
     "tools/verify_dev119_purchase_camera.py",
     "tools/verify_dev125_bank_module.py",
+    "tools/verify_dev126_transaction_dates.py",
     "tools/verify_dev46_employee_payroll.py",
     "tools/verify_dev47_smart_stock.py",
     "tools/verify_dev48_supplier_bill_ocr.py",

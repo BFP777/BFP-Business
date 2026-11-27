@@ -8,7 +8,7 @@ ui = (root / 'app/src/main/java/in/bhajan/bfpbusinesspro/MainActivity.kt').read_
 assert 'Index(value = ["itemCode"], unique = true)' in entities
 assert 'val itemCode: String' in entities and 'val itemCodeSnapshot: String' in entities
 assert 'val attachmentPath: String' in entities
-assert 'version = 10' in db and 'MIGRATION_5_6' in db
+assert 'version = 11' in db and 'MIGRATION_5_6' in db
 assert 'ALTER TABLE invoice_lines ADD COLUMN itemCodeSnapshot TEXT NOT NULL DEFAULT' in db
 assert "UPDATE items SET itemCode = 'ITM-' || id" in db
 assert 'CREATE UNIQUE INDEX IF NOT EXISTS index_items_itemCode' in db

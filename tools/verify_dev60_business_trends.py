@@ -16,7 +16,7 @@ checks = {
  'trend screen includes monthly breakdown and estimate caveat': 'Est. Gross Profit' in main and 'ऐतिहासिक लागत या नेट प्रॉफिट नहीं है' in main,
  'dashboard and menu both link to trends': main.count('showBusinessTrends()') >= 3,
  'screen is read-only and uses DAO Flow': 'observeMonthlyBusinessTrends(startCal.timeInMillis, endCal.timeInMillis).first()' in main,
- 'app version 5.15.0 without Room schema migration': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle and 'version = 10' in db,
+ 'app version 5.15.0 without Room schema migration': 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle and 'version = 11' in db,
 }
 fn = dao.index('fun observeMonthlyBusinessTrends')
 query_start = dao.rfind('@Query(', 0, fn)

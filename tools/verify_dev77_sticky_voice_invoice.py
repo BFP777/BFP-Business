@@ -13,7 +13,7 @@ checks = {
     "voice item is appended and next listening starts": "if (added && continuousVoiceEntry)" in main and "startNextVoiceEntry?.invoke()" in main,
     "invoice remains explicitly saved by user": 'setNeutralButton("सेव", null)' in main and "dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener" in main,
     "dialog is sized to keep fixed editor usable": "dialog.window?.setLayout(-1, (resources.displayMetrics.heightPixels * 0.92f).toInt())" in main,
-    "app version advanced to 5.52.0": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    "app version advanced to 5.52.0": 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
 }
 for label, ok in checks.items(): print(f"{'PASS' if ok else 'FAIL'}: {label}")
 assert all(checks.values())

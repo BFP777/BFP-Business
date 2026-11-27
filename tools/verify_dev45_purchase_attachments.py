@@ -23,8 +23,8 @@ checks = {
     'ZIP restore uncompressed size guard': '250L * 1024L * 1024L' in backup,
     'legacy SQLite restore path retained': 'rawTemp.copyTo(legacyDb, overwrite = true)' in backup,
     'backup picker accepts ZIP': 'application/zip' in main,
-    'backup validator supports schema v9': 'cursor.getInt(0) in 3..10' in backup and 'salary_payments' in backup,
-    'version incremented': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    'backup validator supports schema v9': 'cursor.getInt(0) in 3..11' in backup and 'salary_payments' in backup,
+    'version incremented': 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
 }
 for label, ok in checks.items():
     print(f"{'PASS' if ok else 'FAIL'}: {label}")

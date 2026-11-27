@@ -278,8 +278,8 @@ object DatabaseBackup {
                 require(cursor.moveToFirst() && cursor.getString(0) == "ok") { "बैकअप डेटाबेस की जाँच असफल रही" }
             }
             checkDb.rawQuery("PRAGMA user_version", null).use { cursor ->
-                require(cursor.moveToFirst() && cursor.getInt(0) in 3..10) {
-                    "बैकअप का डेटाबेस संस्करण समर्थित नहीं है (3 से 10)"
+                require(cursor.moveToFirst() && cursor.getInt(0) in 3..11) {
+                    "बैकअप का डेटाबेस संस्करण समर्थित नहीं है (3 से 11)"
                 }
             }
             val requiredTables = setOf("parties", "items", "invoices", "invoice_lines", "payments", "cash_entries", "business_profile")

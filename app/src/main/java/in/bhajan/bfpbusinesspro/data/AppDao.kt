@@ -13,7 +13,7 @@ interface AppDao {
     @Query("SELECT " +
         "(SELECT COALESCE(SUM(totalPaise),0) FROM invoices WHERE kind = 'SALE' AND dateEpochMillis >= :startEpochMillis AND dateEpochMillis < :endEpochMillis) AS salesPaise, " +
         "(SELECT COALESCE(SUM(totalPaise),0) FROM invoices WHERE kind = 'PURCHASE' AND dateEpochMillis >= :startEpochMillis AND dateEpochMillis < :endEpochMillis) AS purchasesPaise, " +
-        "(SELECT COALESCE(SUM(amountPaise),0) FROM payments WHERE direction = 'IN' AND dateEpochMillis >= :startEpochMillis AND dateEpochMillis < :endEpochMillis) AS receiptsPaise, " +
+        "(SELECT COALESCE(SUM(amountPaise),0) FROM payments WHERE direction = 'IN' AND status = 'PAID' AND dateEpochMillis >= :startEpochMillis AND dateEpochMillis < :endEpochMillis) AS receiptsPaise, " +
         "(SELECT COALESCE(SUM(amountPaise),0) FROM cash_entries WHERE entryType = 'EXPENSE' AND dateEpochMillis >= :startEpochMillis AND dateEpochMillis < :endEpochMillis) AS expensesPaise, " +
         "(SELECT COALESCE(SUM(il.quantity * (it.saleRatePaise - it.purchaseRatePaise)),0) FROM invoice_lines il INNER JOIN invoices inv ON inv.id = il.invoiceId INNER JOIN items it ON it.id = il.itemId WHERE inv.kind = 'SALE' AND inv.dateEpochMillis >= :startEpochMillis AND inv.dateEpochMillis < :endEpochMillis AND it.saleRatePaise > 0 AND it.purchaseRatePaise > 0) AS estimatedGrossProfitPaise")
     fun observeBusinessDashboard(startEpochMillis: Long, endEpochMillis: Long): Flow<BusinessDashboardRow>
@@ -135,10 +135,11 @@ interface AppDao {
     @Update suspend fun updatePayment(value: PaymentEntity)
     @Delete suspend fun deletePayment(value: PaymentEntity)
     @Query("SELECT * FROM payments WHERE id = :id") suspend fun getPayment(id: Long): PaymentEntity?
-    @Query("SELECT * FROM payments WHERE partyId = :partyId ORDER BY dateEpochMillis DESC, id DESC") suspend fun getPartyPayments(partyId: Long): List<PaymentEntity>
-    @Query("SELECT COALESCE(SUM(amountPaise),0) FROM payments WHERE invoiceId = :invoiceId") suspend fun sumInvoicePayments(invoiceId: Long): Long
-    @Query("SELECT * FROM payments ORDER BY dateEpochMillis DESC, id DESC") fun observePayments(): Flow<List<PaymentEntity>>
+    @Query("SELECT * FROM payments WHERE partyId = :partyId AND status = 'PAID' ORDER BY dateEpochMillis DESC, id DESC") suspend fun getPartyPayments(partyId: Long): List<PaymentEntity>
+    @Query("SELECT COALESCE(SUM(amountPaise),0) FROM payments WHERE invoiceId = :invoiceId AND status = 'PAID'") suspend fun sumInvoicePayments(invoiceId: Long): Long
+    @Query("SELECT * FROM payments WHERE status = 'PAID' ORDER BY dateEpochMillis DESC, id DESC") fun observePayments(): Flow<List<PaymentEntity>>
     @Query("SELECT COUNT(*) FROM payments WHERE invoiceId = :invoiceId") suspend fun countPaymentsForInvoice(invoiceId: Long): Int
+    @Query("SELECT * FROM payments ORDER BY dateEpochMillis DESC, id DESC") fun observeAllPayments(): Flow<List<PaymentEntity>>
     @Insert suspend fun insertCashEntry(value: CashEntryEntity): Long
     @Update suspend fun updateCashEntry(value: CashEntryEntity)
     @Delete suspend fun deleteCashEntry(value: CashEntryEntity)

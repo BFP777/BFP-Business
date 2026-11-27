@@ -11,8 +11,8 @@ checks = {
     "financial audit shortcut": 'showBusinessFinancialAudit()' in main,
     "business trends shortcut": 'showBusinessTrends()' in main,
     "day book shortcut": 'showDayBook()' in main,
-    "version 5.43.0 / 541": 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
-    "Room schema remains 10": 'version = 10' in (root / "app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt").read_text(),
+    "version 5.43.0 / 541": 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
+    "Room schema remains 10": 'version = 11' in (root / "app/src/main/java/in/bhajan/bfpbusinesspro/data/BfpDatabase.kt").read_text(),
 }
 for name, ok in checks.items(): print(('PASS' if ok else 'FAIL') + ': ' + name)
 if not all(checks.values()): raise SystemExit(1)

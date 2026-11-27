@@ -14,8 +14,8 @@ checks = {
     'bill count includes only the relevant SALE or PURCHASE invoices': 'relevantInvoices.size' in repo and 'partyInvoices.size' not in main,
     'unallocated advances offset invoice balances': 'it.invoiceId == null' in repo and 'coerceAtLeast(0L)' in repo,
     'party list opens the selected party ledger': 'setOnClickListener { showPartyLedger(party) }' in main,
-    'Room schema remains unchanged': 'version = 10' in db,
-    'app version is 5.52.0 / 552': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    'Room schema remains unchanged': 'version = 11' in db,
+    'app version is 5.52.0 / 552': 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
 }
 for label, ok in checks.items():
     print(('PASS' if ok else 'FAIL') + ': ' + label)

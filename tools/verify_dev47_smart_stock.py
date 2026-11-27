@@ -19,7 +19,7 @@ checks = {
     'item form validates minimum stock quantity': 'minQ < 0' in main and 'minimumStockQuantity = minQ' in main,
     'non-destructive 7 to 8 migration registered': 'Migration(7, 8)' in db and 'ALTER TABLE items ADD COLUMN minimumStockQuantity REAL NOT NULL DEFAULT 2.0' in db and 'MIGRATION_7_8' in db,
     'backup accepts schema v9': 'cursor.getInt(0) in 3..10' in backup,
-    'app version advanced': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
+    'app version advanced': 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
 }
 # Execute the migration against a realistic prior-version items table.
 migration = db.split('private val MIGRATION_7_8', 1)[1].split('private val MIGRATION_8_9', 1)[0]

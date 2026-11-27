@@ -10,8 +10,8 @@ checks = {
     'Indian 10-digit normalization': 'if (digits.length == 10) digits = "91$digits"' in main,
     'invalid phone number guard': 'digits.length !in 11..15' in main,
     'customer-specific design personalization': 'preferred?.let' in main and 'it.itemName' in main,
-    'version advanced': 'versionCode = 564' in gradle and 'versionName = "5.64.0"' in gradle,
-    'database schema unchanged': 'Room schema: 9 (no database migration required)' in notes,
+    'version advanced': 'versionCode = 565' in gradle and 'versionName = "5.65.0"' in gradle,
+    'database schema unchanged': 'Room schema: 11 (transaction scheduling migration)' in notes,
     'manual send clearly documented': 'user reviews and manually sends it' in notes,
 }
 for label, ok in checks.items():

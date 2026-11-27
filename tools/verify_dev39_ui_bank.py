@@ -8,6 +8,6 @@ assert 'private fun showDashboard()' in main and 'TOTAL SALES' in main and 'TOTA
 assert 'private fun showMenu()' in main and 'HOME' in main and 'DASHBOARD' in main and 'ITEMS' in main and 'MENU' in main
 assert 'private fun showBankAccounts()' in main and 'private fun bankAccountDialog' in main
 assert 'data class BankAccountEntity' in entities and 'val accountName: String' in entities
-assert 'version = 10' in db and 'MIGRATION_3_4' in db and 'MIGRATION_4_5' in db
+assert 'version = 11' in db and 'MIGRATION_3_4' in db and 'MIGRATION_4_5' in db
 assert 'observeBankAccounts()' in dao and 'countBankAccountName' in dao
 print('Development 39 UI and bank-account source checks: PASS')
