@@ -1,0 +1,4 @@
+BFP Business Pro logo integration
+Source: user-provided BFP_logo.pdf
+Included as app header artwork and Android launcher icon.
+Version: 5.67.0 (versionCode 567)

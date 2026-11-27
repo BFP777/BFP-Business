@@ -163,10 +163,13 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(16), dp(12), dp(16), dp(12)); setBackgroundColor(0xFF071F55.toInt())
             elevation = dp(3).toFloat()
         }
-        val mark = TextView(this).apply {
-            text = "BFP"; textSize = 16f; gravity = Gravity.CENTER
-            setTextColor(0xFFFFFFFF.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
-            background = rounded(0xFFFFFFFF.toInt(), 9); setTextColor(0xFF071F55.toInt()); layoutParams = LinearLayout.LayoutParams(dp(48), dp(42))
+        val mark = ImageView(this).apply {
+            setImageResource(R.drawable.bfp_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "BFP Business Pro logo"
+            background = rounded(0xFFFFFFFF.toInt(), 9)
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
         }
         header.addView(mark)
         header.addView(TextView(this).apply {
