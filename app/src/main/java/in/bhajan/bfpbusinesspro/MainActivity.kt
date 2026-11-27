@@ -1683,7 +1683,7 @@ class MainActivity : AppCompatActivity() {
             val note = editField("Note (optional)", "")
             box.addView(TextView(this@MainActivity).apply { text = "From Bank Account" }); box.addView(from)
             box.addView(TextView(this@MainActivity).apply { text = "To Bank Account" }); box.addView(to)
-            box.addView(paymentDateButton); box.addView(amount); box.addView(note)
+            box.addView(amount); box.addView(note)
             AlertDialog.Builder(this@MainActivity).setTitle("Bank to Bank Transfer").setView(box).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create().also { dialog ->
                 dialog.setOnShowListener {
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -2508,6 +2508,7 @@ class MainActivity : AppCompatActivity() {
             box.addView(TextView(this@MainActivity).apply { text = "संबंधित बिल (वैकल्पिक)" }); box.addView(bill)
             box.addView(TextView(this@MainActivity).apply { text = "भुगतान माध्यम" }); box.addView(mode)
             box.addView(TextView(this@MainActivity).apply { text = "बैंक अकाउंट" }); box.addView(bank)
+            box.addView(paymentDateButton)
             box.addView(amount); box.addView(note)
             val dialog = AlertDialog.Builder(this@MainActivity).setTitle(if (existing == null) titleForPayment(direction) else "भुगतान एडिट").setView(box).setNegativeButton("रद्द", null).setPositiveButton("सेव", null).create()
             dialog.setOnShowListener {
