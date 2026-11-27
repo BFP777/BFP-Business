@@ -778,12 +778,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showVoiceInputLanguageSettings() {
         val prefs = getSharedPreferences("bfp_settings", MODE_PRIVATE)
-        val current = prefs.getString("voice_input_language", "en-IN") ?: "en-IN"
-        val selected = if (current == "hi-IN") 0 else 1
+        val current = prefs.getString("voice_input_language", "hi-IN") ?: "hi-IN"
+        val selected = if (current == "en-IN") 1 else 0
         AlertDialog.Builder(this)
             .setTitle("Voice Input Language / वॉइस भाषा")
-            .setSingleChoiceItems(arrayOf("English (Default)", "हिंदी / Hindi"), selected) { dialog, which ->
-                val locale = if (which == 1) "hi-IN" else "en-IN"
+            .setSingleChoiceItems(arrayOf("हिंदी / Hindi (Default)", "English"), selected) { dialog, which ->
+                val locale = if (which == 0) "hi-IN" else "en-IN"
                 prefs.edit().putString("voice_input_language", locale).apply()
                 dialog.dismiss()
                 toast(if (locale == "hi-IN") "Voice input: हिंदी" else "Voice input: English")
@@ -3122,7 +3122,7 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 if (continuousRecognizer == null) continuousRecognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
-                val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "en-IN") ?: "en-IN"
+                val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "hi-IN") ?: "hi-IN"
                 val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
@@ -3644,7 +3644,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun launchVoiceRecognition(target: EditText, onResult: (String) -> Unit) {
         // English remains the default; the persistent Utilities setting can switch recognition to Hindi.
-        val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "en-IN") ?: "en-IN"
+        val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "hi-IN") ?: "hi-IN"
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
@@ -3657,13 +3657,23 @@ class MainActivity : AppCompatActivity() {
 
     /** Splits a spoken item phrase into an item name and an optional trailing price. */
     private fun parseVoiceItemPhrase(raw: String): Triple<String, String?, String?> {
-        val originalTokens = raw.replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-        val tokens = originalTokens.map { it.lowercase(java.util.Locale.ROOT) }
+        // Normalize Hindi/Devanagari digits before tokenization so speech engines
+        // returning either words or native digits feed the same parser.
+        val devanagariDigits = mapOf('०' to '0', '१' to '1', '२' to '2', '३' to '3', '४' to '4', '५' to '5', '६' to '6', '७' to '7', '८' to '8', '९' to '9')
+        val normalizedRaw = buildString { raw.forEach { ch -> append(devanagariDigits[ch] ?: ch) } }
+        val originalTokens = normalizedRaw.replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        val tokens = originalTokens.map { token ->
+            when (token.lowercase(java.util.Locale.ROOT)) {
+                "छः", "छ:ह", "छे" -> "छह"
+                "पाँच", "पांच" -> "पाँच"
+                else -> token.lowercase(java.util.Locale.ROOT)
+            }
+        }
         val small = mapOf(
             "zero" to 0L, "oh" to 0L, "one" to 1L, "two" to 2L, "three" to 3L, "four" to 4L, "five" to 5L, "six" to 6L, "seven" to 7L, "eight" to 8L, "nine" to 9L,
             "ten" to 10L, "eleven" to 11L, "twelve" to 12L, "thirteen" to 13L, "fourteen" to 14L, "fifteen" to 15L, "sixteen" to 16L, "seventeen" to 17L, "eighteen" to 18L, "nineteen" to 19L,
             "बीस" to 20L, "इक्कीस" to 21L, "बाईस" to 22L, "तेईस" to 23L, "चौबीस" to 24L, "पच्चीस" to 25L, "तीस" to 30L, "चालीस" to 40L, "पचास" to 50L, "साठ" to 60L, "सत्तर" to 70L, "अस्सी" to 80L, "नब्बे" to 90L,
-            "एक" to 1L, "दो" to 2L, "तीन" to 3L, "चार" to 4L, "पांच" to 5L, "पाँच" to 5L, "छह" to 6L, "सात" to 7L, "आठ" to 8L, "नौ" to 9L, "दस" to 10L, "ग्यारह" to 11L, "बारह" to 12L, "तेरह" to 13L, "चौदह" to 14L, "पंद्रह" to 15L, "सोलह" to 16L, "सत्रह" to 17L, "अठारह" to 18L, "उन्नीस" to 19L
+            "एक" to 1L, "दो" to 2L, "तीन" to 3L, "चार" to 4L, "पांच" to 5L, "पाँच" to 5L, "छह" to 6L, "छः" to 6L, "छे" to 6L, "सात" to 7L, "आठ" to 8L, "नौ" to 9L, "दस" to 10L, "ग्यारह" to 11L, "बारह" to 12L, "तेरह" to 13L, "चौदह" to 14L, "पंद्रह" to 15L, "सोलह" to 16L, "सत्रह" to 17L, "अठारह" to 18L, "उन्नीस" to 19L
         )
         val tens = mapOf("twenty" to 20L, "thirty" to 30L, "forty" to 40L, "fifty" to 50L, "sixty" to 60L, "seventy" to 70L, "eighty" to 80L, "ninety" to 90L)
         val currency = setOf("rupee", "rupees", "rs", "inr", "रुपया", "रुपये", "रुपए", "रूपये", "रूपए", "रु")
