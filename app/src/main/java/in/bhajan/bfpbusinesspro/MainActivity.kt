@@ -766,7 +766,7 @@ class MainActivity : AppCompatActivity() {
 
         section("Settings")
         menuEntry("⚙   GST Settings") { showGstSettings() }
-        menuEntry("⚙   Voice Input Language: English") { showVoiceInputLanguageSettings() }
+        menuEntry("⚙   Voice Input Language: Hindi") { showVoiceInputLanguageSettings() }
         menuEntry("⚙   Display Language: English") {
             AlertDialog.Builder(this)
                 .setTitle("Display Language")
@@ -782,8 +782,8 @@ class MainActivity : AppCompatActivity() {
         val selected = if (current == "hi-IN") 0 else 1
         AlertDialog.Builder(this)
             .setTitle("Voice Input Language / वॉइस भाषा")
-            .setSingleChoiceItems(arrayOf("English (Default)", "हिंदी / Hindi"), selected) { dialog, which ->
-                val locale = if (which == 1) "hi-IN" else "en-IN"
+            .setSingleChoiceItems(arrayOf("हिंदी / Hindi (Default)", "English (India)"), selected) { dialog, which ->
+                val locale = if (which == 0) "hi-IN" else "en-IN"
                 prefs.edit().putString("voice_input_language", locale).apply()
                 dialog.dismiss()
                 toast(if (locale == "hi-IN") "Voice input: हिंदी" else "Voice input: English")
@@ -3122,10 +3122,8 @@ class MainActivity : AppCompatActivity() {
                             val parsedItems = parseVoiceItemPhrases(transcript, knownNames)
                             // Keep the legacy single-item fallback only when there is no known-name
                             // catalogue. Never collapse a multi-item sentence into one bogus line.
-                            if (parsedItems.isEmpty() && knownNames.isEmpty()) {
-                                val single = parseVoiceItemPhrase(transcript)
-                                if (single.first.isNotBlank() && single.second != null && single.third != null) parsedItems.add(single)
-                            }
+                            // Do not invent an item name when catalogue matching fails. This prevents
+                            // noisy ASR text from becoming a wrong bill line; show the transcript for correction instead.
                             if (parsedItems.isEmpty()) {
                                 voiceStatus?.text = "आइटम नहीं मिला — Saved Items में नाम जाँचें"
                                 toast("आइटम की पहचान नहीं हुई। नाम जाँचें या मैन्युअली भरें")
@@ -3151,8 +3149,11 @@ class MainActivity : AppCompatActivity() {
                         }
                     } finally {
                         voiceProcessing = false
-                        // Close the tiny race where a final speech result arrives as the queue drains.
-                        if (pendingVoiceTranscripts.isNotEmpty()) processSpokenItem(pendingVoiceTranscripts.removeFirst())
+                        if (pendingVoiceTranscripts.isNotEmpty()) {
+                            val nextTranscript = pendingVoiceTranscripts.removeFirst()
+                            lastVoiceTranscript = ""
+                            processSpokenItem(nextTranscript)
+                        }
                     }
                 }
             }
@@ -3172,14 +3173,19 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 if (continuousRecognizer == null) continuousRecognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
-                val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "hi-IN") ?: "hi-IN"
+                // Billing commands are spoken in Hindi; force Hindi ASR here so an old English
+                // preference cannot turn words such as "नौ सूट" into unrelated English text.
+                val locale = "hi-IN"
                 val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale)
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
                     putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1100L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 700L)
                 }
                 if (!recognizerListenerReady) {
                     continuousRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -3190,14 +3196,27 @@ class MainActivity : AppCompatActivity() {
                         override fun onEndOfSpeech() { voiceStatus?.text = "आवाज़ समझ रहा है…" }
                         override fun onError(error: Int) {
                             if (!continuousVoiceEntry) return
-                            if (error != SpeechRecognizer.ERROR_NO_MATCH && error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                                voiceStatus?.text = "Voice में रुकावट — फिर शुरू करें"
+                            if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                                voiceStatus?.text = "माइक्रोफोन अनुमति नहीं मिली"
                                 stopContinuousVoice()
                                 return
                             }
-                            voiceStatus?.text = "फिर सुनने की तैयारी…"
-                            restartVoiceRunnable = Runnable { if (continuousVoiceEntry) try { continuousRecognizer?.startListening(speechIntent) } catch (_: Exception) { stopContinuousVoice() } }
-                            voiceHandler.postDelayed(restartVoiceRunnable!!, if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) 350L else 900L)
+                            val retryDelay = when (error) {
+                                SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 500L
+                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY, SpeechRecognizer.ERROR_CLIENT -> 1200L
+                                else -> 1600L
+                            }
+                            voiceStatus?.text = "Voice दोबारा शुरू हो रही है… ($error)"
+                            restartVoiceRunnable = Runnable {
+                                if (continuousVoiceEntry) try {
+                                    continuousRecognizer?.cancel()
+                                    continuousRecognizer?.startListening(speechIntent)
+                                } catch (_: Exception) {
+                                    voiceStatus?.text = "Voice फिर शुरू नहीं हुई — बटन दबाकर दोबारा चालू करें"
+                                    stopContinuousVoice()
+                                }
+                            }
+                            voiceHandler.postDelayed(restartVoiceRunnable!!, retryDelay)
                         }
                         override fun onResults(results: Bundle?) {
                             if (!continuousVoiceEntry) return
@@ -3206,7 +3225,11 @@ class MainActivity : AppCompatActivity() {
                             restartVoiceRunnable = Runnable { if (continuousVoiceEntry) try { continuousRecognizer?.startListening(speechIntent) } catch (_: Exception) { stopContinuousVoice() } }
                             voiceHandler.postDelayed(restartVoiceRunnable!!, 450L)
                         }
-                        override fun onPartialResults(partialResults: Bundle?) { }
+                        override fun onPartialResults(partialResults: Bundle?) {
+                            if (!continuousVoiceEntry) return
+                            val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                            if (partial.isNotBlank()) voiceStatus?.text = "🎙 सुन रहा है: $partial"
+                        }
                         override fun onEvent(eventType: Int, params: Bundle?) { }
                     })
                     recognizerListenerReady = true
