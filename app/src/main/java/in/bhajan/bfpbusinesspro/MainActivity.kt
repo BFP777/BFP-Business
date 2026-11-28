@@ -3098,24 +3098,63 @@ class MainActivity : AppCompatActivity() {
                     val value = barcode.rawValue.orEmpty(); if (value.isBlank()) toast("स्कैन में कोड नहीं मिला") else applyDraftItemCode(value)
                 }.addOnCanceledListener { toast("स्कैन रद्द किया गया") }.addOnFailureListener { error -> toast("Scanner उपलब्ध नहीं: ${error.localizedMessage ?: "फिर कोशिश करें"}") } }
             }
+            var lastVoiceTranscript = ""
+            var lastVoiceTranscriptAt = 0L
+            var voiceProcessing = false
+            val pendingVoiceTranscripts = java.util.ArrayDeque<String>()
             fun processSpokenItem(spoken: String) {
-                val parsed = parseVoiceItemPhrase(spoken)
-                if (parsed.first.isBlank()) { draftName.setText(spoken.trim()); voiceStatus?.text = "आइटम समझ नहीं आया — जाँचें"; return }
-                draftName.setText(parsed.first)
-                draftQty.setText(parsed.second ?: "1")
-                parsed.third?.let { draftRate.setText(it) }
-                if (parsed.third != null) {
-                    val added = commitDraftLine()
-                    if (added) {
-                        // DEV129: after each completed voice item, keep the next
-                        // entry in the editor (not inside/under the previous row).
-                        draftQty.requestFocus()
-                        draftQty.setSelection(draftQty.text.length)
-                        itemListScroll?.post { itemListScroll?.smoothScrollTo(0, linesBox.top) }
-                        voiceStatus?.text = "${rows.size} आइटम जुड़ीं — अगली आइटम बोलें"
-                        toast("जुड़ गया: ${parsed.first} | मात्रा ${parsed.second ?: "1"} | रेट ₹${parsed.third} — अगली आइटम बोलें")
+                val normalizedTranscript = spoken.trim().lowercase(java.util.Locale.ROOT).replace(Regex("\\s+"), " ")
+                val now = android.os.SystemClock.elapsedRealtime()
+                // Some Android speech services can deliver the same final result twice.
+                if (normalizedTranscript == lastVoiceTranscript && now - lastVoiceTranscriptAt < 2500L) return
+                lastVoiceTranscript = normalizedTranscript
+                lastVoiceTranscriptAt = now
+                pendingVoiceTranscripts.addLast(spoken)
+                if (voiceProcessing) return
+                voiceProcessing = true
+                lifecycleScope.launch {
+                    try {
+                        while (pendingVoiceTranscripts.isNotEmpty()) {
+                            val transcript = pendingVoiceTranscripts.removeFirst()
+                            val masterItems = withContext(Dispatchers.IO) { db.dao().observeItems().first() }
+                            val knownNames = (masterItems.map { it.name } + readSavedSaleItems().map { it.first })
+                                .filter { it.isNotBlank() }.distinct()
+                            val parsedItems = parseVoiceItemPhrases(transcript, knownNames)
+                            // Keep the legacy single-item fallback only when there is no known-name
+                            // catalogue. Never collapse a multi-item sentence into one bogus line.
+                            if (parsedItems.isEmpty() && knownNames.isEmpty()) {
+                                val single = parseVoiceItemPhrase(transcript)
+                                if (single.first.isNotBlank() && single.second != null && single.third != null) parsedItems.add(single)
+                            }
+                            if (parsedItems.isEmpty()) {
+                                voiceStatus?.text = "आइटम नहीं मिला — Saved Items में नाम जाँचें"
+                                toast("आइटम की पहचान नहीं हुई। नाम जाँचें या मैन्युअली भरें")
+                                continue
+                            }
+                            var addedCount = 0
+                            parsedItems.forEach { parsed ->
+                                if (parsed.first.isBlank() || parsed.second.isNullOrBlank() || parsed.third.isNullOrBlank()) return@forEach
+                                draftName.setText(parsed.first)
+                                draftQty.setText(parsed.second)
+                                draftRate.setText(parsed.third)
+                                if (commitDraftLine()) addedCount++
+                            }
+                            if (addedCount > 0) {
+                                draftQty.requestFocus()
+                                draftQty.setSelection(draftQty.text.length)
+                                itemListScroll?.post { itemListScroll?.smoothScrollTo(0, linesBox.top) }
+                                voiceStatus?.text = "$addedCount आइटम जोड़ी गईं — अगली आइटम बोलें"
+                                toast("$addedCount आइटम बिल में जुड़ीं")
+                            } else {
+                                voiceStatus?.text = "मात्रा/रेट समझ नहीं आया — जाँचें"
+                            }
+                        }
+                    } finally {
+                        voiceProcessing = false
+                        // Close the tiny race where a final speech result arrives as the queue drains.
+                        if (pendingVoiceTranscripts.isNotEmpty()) processSpokenItem(pendingVoiceTranscripts.removeFirst())
                     }
-                } else { voiceStatus?.text = "रेट समझ नहीं आया — रेट भरकर जोड़ें"; toast("रेट जाँचकर आइटम जोड़ें") }
+                }
             }
             fun stopContinuousVoice() {
                 continuousVoiceEntry = false
@@ -3664,6 +3703,63 @@ class MainActivity : AppCompatActivity() {
         }
         try { pendingVoiceInput = target; pendingVoiceHandler = onResult; voiceInput.launch(intent) }
         catch (_: Exception) { pendingVoiceInput = null; pendingVoiceHandler = null; continuousVoiceEntry = false; toast("इस फोन में Voice Input उपलब्ध नहीं है") }
+    }
+
+    /**
+     * DEV132: split one continuous Hindi voice transcript into multiple bill lines.
+     * Saved Item Master names are used as anchors so a multi-word name (for example,
+     * "night suit") is kept together instead of being mistaken for another quantity.
+     */
+    private fun parseVoiceItemPhrases(raw: String, knownItemNames: List<String>): MutableList<Triple<String, String?, String?>> {
+        val output = mutableListOf<Triple<String, String?, String?>>()
+        if (raw.isBlank() || knownItemNames.isEmpty()) return output
+        fun normalizeDigits(value: String): String = value.map { ch ->
+            when (ch) { '०' -> '0'; '१' -> '1'; '२' -> '2'; '३' -> '3'; '४' -> '4'; '५' -> '5'; '६' -> '6'; '७' -> '7'; '८' -> '8'; '९' -> '9'; else -> ch }
+        }.joinToString("")
+        fun tokens(value: String) = normalizeDigits(value).lowercase(java.util.Locale.ROOT)
+            .replace(Regex("[^\\p{L}\\p{N}.]+"), " ").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+        val transcriptTokens = tokens(raw)
+        if (transcriptTokens.isEmpty()) return output
+        val numberWords = setOf("0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","30","40","50","60","70","80","90", "एक","दो","तीन","चार","पांच","पाँच","छह","छः","सात","आठ","नौ","दस","ग्यारह","बारह","तेरह","चौदह","पंद्रह","सोलह","सत्रह","अठारह","उन्नीस","बीस","इक्कीस","बाईस","तेईस","चौबीस","पच्चीस","तीस","चालीस","पचास","साठ","सत्तर","अस्सी","नब्बे","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","hundred","सौ","thousand","हजार","हज़ार")
+        val names = knownItemNames.distinct().map { name -> name to tokens(name) }
+            .filter { it.second.isNotEmpty() }.sortedByDescending { it.second.size }
+        fun matchNameAt(index: Int): Pair<String, Int>? {
+            // Permit one short spoken filler between quantity and the saved item name.
+            val starts = listOf(index, index + 1).filter { it < transcriptTokens.size }
+            for (start in starts) for ((name, nameTokens) in names) {
+                if (start + nameTokens.size <= transcriptTokens.size && transcriptTokens.subList(start, start + nameTokens.size) == nameTokens) {
+                    return name to (start + nameTokens.size)
+                }
+            }
+            return null
+        }
+        fun quantityEnd(start: Int): Int {
+            var i = start
+            while (i < transcriptTokens.size && transcriptTokens[i] in numberWords) i++
+            return i
+        }
+        var cursor = 0
+        while (cursor < transcriptTokens.size) {
+            val qEnd = quantityEnd(cursor)
+            if (qEnd == cursor) { cursor++; continue }
+            val itemMatch = matchNameAt(qEnd)
+            if (itemMatch == null) { cursor = qEnd; continue }
+            val itemEnd = itemMatch.second
+            var nextStart = transcriptTokens.size
+            var scan = itemEnd
+            while (scan < transcriptTokens.size) {
+                val nextQtyEnd = quantityEnd(scan)
+                if (nextQtyEnd > scan && matchNameAt(nextQtyEnd) != null) { nextStart = scan; break }
+                scan++
+            }
+            val segment = transcriptTokens.subList(cursor, nextStart).joinToString(" ")
+            val parsed = parseVoiceItemPhrase(segment)
+            val rate = parsed.third
+            val quantity = parsed.second
+            if (rate != null && quantity != null) output.add(Triple(itemMatch.first, quantity, rate))
+            cursor = if (nextStart < transcriptTokens.size) nextStart else transcriptTokens.size
+        }
+        return output
     }
 
     /** Splits a spoken item phrase into an item name and an optional trailing price. */
