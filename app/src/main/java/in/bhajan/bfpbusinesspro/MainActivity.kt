@@ -778,7 +778,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showVoiceInputLanguageSettings() {
         val prefs = getSharedPreferences("bfp_settings", MODE_PRIVATE)
-        val current = prefs.getString("voice_input_language", "en-IN") ?: "en-IN"
+        val current = prefs.getString("voice_input_language", "hi-IN") ?: "hi-IN"
         val selected = if (current == "hi-IN") 0 else 1
         AlertDialog.Builder(this)
             .setTitle("Voice Input Language / वॉइस भाषा")
@@ -2951,10 +2951,13 @@ class MainActivity : AppCompatActivity() {
                 }
                 getSharedPreferences("bfp_saved_sale_item_suggestions_v1", MODE_PRIVATE).edit().putString("items", array.toString()).apply()
             }
-            fun refreshSavedSaleItemSuggestions(query: String) {
+            fun refreshSavedSaleItemSuggestions(query: String, showAll: Boolean = false) {
                 savedSaleItemsPanel.removeAllViews()
-                if (kind != "SALE" || query.isBlank()) { savedSaleItemsPanel.visibility = View.GONE; return }
-                val matches = readSavedSaleItems().filter { it.first.startsWith(query.trim(), ignoreCase = true) }.take(8)
+                if (kind != "SALE") { savedSaleItemsPanel.visibility = View.GONE; return }
+                val savedItems = readSavedSaleItems()
+                val matches = (if (query.isBlank() && showAll) savedItems else savedItems.filter { it.first.startsWith(query.trim(), ignoreCase = true) || it.first.contains(query.trim(), ignoreCase = true) })
+                    .take(10)
+                if (matches.isEmpty()) { savedSaleItemsPanel.visibility = View.GONE; return }
                 if (matches.isEmpty()) { savedSaleItemsPanel.visibility = View.GONE; return }
                 savedSaleItemsPanel.visibility = View.VISIBLE
                 savedSaleItemsPanel.addView(TextView(this@MainActivity).apply {
@@ -2994,9 +2997,16 @@ class MainActivity : AppCompatActivity() {
             entryBox.addView(draftHsn)
             draftName.addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { refreshSavedSaleItemSuggestions(s?.toString().orEmpty()) }
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { refreshSavedSaleItemSuggestions(s?.toString().orEmpty(), showAll = false) }
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
+            // DEV131: tapping/focusing the Item Name field opens the saved-item list immediately.
+            draftName.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus && draftName.text.isNullOrBlank()) refreshSavedSaleItemSuggestions("", showAll = true)
+            }
+            draftName.setOnClickListener {
+                if (draftName.text.isNullOrBlank()) refreshSavedSaleItemSuggestions("", showAll = true)
+            }
             val itemListHeader = TextView(this@MainActivity).apply { text = "जोड़ी गई आइटम"; textSize = 14f; setTypeface(null, android.graphics.Typeface.BOLD); setPadding(0, dp(10), 0, dp(4)) }
             val itemCountButton = Button(this@MainActivity).apply { text = "0 आइटम"; textSize = 12f; minHeight = dp(34); minimumHeight = dp(34); setPadding(dp(8), 0, dp(8), 0); isAllCaps = false }
             val listHeader = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; addView(itemListHeader, LinearLayout.LayoutParams(0, -2, 1f)); addView(itemCountButton, LinearLayout.LayoutParams(-2, -2)) }
@@ -3123,7 +3133,7 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 if (continuousRecognizer == null) continuousRecognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
-                val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "en-IN") ?: "en-IN"
+                val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "hi-IN") ?: "hi-IN"
                 val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
@@ -3645,7 +3655,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun launchVoiceRecognition(target: EditText, onResult: (String) -> Unit) {
         // English remains the default; the persistent Utilities setting can switch recognition to Hindi.
-        val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "en-IN") ?: "en-IN"
+        val locale = getSharedPreferences("bfp_settings", MODE_PRIVATE).getString("voice_input_language", "hi-IN") ?: "hi-IN"
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
